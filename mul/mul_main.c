@@ -108,11 +108,18 @@ main(int argc, char **argv)
     /* initialize controller handler */
     of_ctrl_init(&ctrl_hdl, sthreads, athreads);
 
+    // Kajal: Initialize the c_main_buf_head
+    // As there is only 1 main thread, no need of locks
+    cbuf_list_head_init(&c_main_buf_head);
+
     clog_default = openclog (progname, CLOG_MUL,
                              LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
     clog_set_level(NULL, CLOG_DEST_SYSLOG, LOG_WARNING);
     clog_set_level(NULL, CLOG_DEST_STDOUT, LOG_DEBUG);
 
+    // Kajal: This is where the switch threads get created
+    // The switch threads are no longer required in this MUL
+    // model but we will keep them to resolve issues while testing.
     c_thread_start(&ctrl_hdl, sthreads, athreads);
     while (1) {
         sleep(1);

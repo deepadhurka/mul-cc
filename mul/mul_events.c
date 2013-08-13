@@ -135,6 +135,12 @@ c_thread_write_event(evutil_socket_t fd UNUSED, short events UNUSED, void *arg)
     c_wr_unlock(&conn->conn_lock);
 }
 
+//Kajal: This is where the switch reads the message into a 
+// buffer. 
+// Algo:
+// ====
+//  1. 
+
 static int __fastpath
 c_switch_read_nonblock_loop(int fd, void *arg, c_conn_t *conn,
                             const size_t rcv_buf_sz, 
@@ -144,6 +150,7 @@ c_switch_read_nonblock_loop(int fd, void *arg, c_conn_t *conn,
     struct cbuf         curr_b, *b = NULL;
     int                 loop_cnt = 0;
 
+    
     if (!conn->cbuf) {
         b = alloc_cbuf(rcv_buf_sz);
     } else {
@@ -190,6 +197,7 @@ c_switch_read_nonblock_loop(int fd, void *arg, c_conn_t *conn,
             curr_b.len = ntohs(((struct ofp_header *)(b->data))->length);
             curr_b.tail = b->data + curr_b.len;
 
+	    // Kajal: Call the function of_msg_recv with the current buffer
             proc_msg(arg, &curr_b);
             cbuf_pull(b, curr_b.len);
 
@@ -200,6 +208,8 @@ c_switch_read_nonblock_loop(int fd, void *arg, c_conn_t *conn,
     return rd_sz;
 }
 
+//Kajal: This is callback from the event_new()
+// Parameters to callback from event_new are always same
 void __fastpath
 c_switch_thread_read(evutil_socket_t fd, short events UNUSED, void *arg)
 {
@@ -210,6 +220,7 @@ c_switch_thread_read(evutil_socket_t fd, short events UNUSED, void *arg)
     ret = c_switch_read_nonblock_loop(fd, sw, &sw->conn, OFC_RCV_BUF_SZ,
                                       of_switch_recv_msg);
     if (c_recvd_sock_dead(ret)) {
+	//Kajal: This is how the switch is removed
         perror("c_switch_thread_read");
         sw->conn.dead = 1;
         c_worker_do_switch_del(w_ctx, sw);
