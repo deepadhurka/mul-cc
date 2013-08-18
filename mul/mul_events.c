@@ -328,6 +328,12 @@ c_worker_do_app_add(void *ctx_arg, void *msg_arg)
     return 0;
 }
 
+//Kajal: This function gets tied in from IPC event where
+// the new connection is distunguished in the worker context
+
+// In MUL modification, the main thread does all the handling, and
+// that is where the new connection gets inserted. So, we don't need
+// to operate on the worker context
 static int
 c_worker_do_switch_add(void *ctx_arg, void *msg_arg)
 {
@@ -350,6 +356,7 @@ c_worker_do_switch_add(void *ctx_arg, void *msg_arg)
 
     c_log_debug("New switch to thread (%u)\n", (unsigned)c_wrk_ctx->thread_idx);
 
+    // This is where the data structures for the buffer get initialized
     new_switch = of_switch_alloc(c_wrk_ctx);
 
     t_data->sw_list = g_slist_append(t_data->sw_list, new_switch);
@@ -389,6 +396,7 @@ c_worker_event_new_conn(void *ctx_arg, void *msg_arg)
     return -1;
 }
 
+// This function does not get used in the new handling
 static int
 c_new_conn_to_thread(struct c_main_ctx *m_ctx, int new_conn_fd,
                      bool sw_conn, bool aux_conn)
@@ -443,6 +451,7 @@ c_accept(evutil_socket_t listener, short event UNUSED, void *arg)
     }
 }
 
+// Kajal: This function does not get used
 void
 c_app_accept(evutil_socket_t listener, short event UNUSED, void *arg)
 {

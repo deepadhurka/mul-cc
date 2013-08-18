@@ -70,6 +70,8 @@ c_alloc_thread_ctx(struct thread_alloc_args *args)
             m_ctx->nthreads = args->nthreads; 
             m_ctx->n_appthreads = args->n_appthreads; 
             m_ctx->cmn_ctx.thread_type = args->thread_type; 
+	    // In the main thread, the cmn_ctx has the pointer to 
+	    // main_ctrl_handler
             m_ctx->cmn_ctx.c_hdl = args->c_hdl;
             break;
         }
@@ -81,7 +83,10 @@ c_alloc_thread_ctx(struct thread_alloc_args *args)
 
             ctx = w_ctx;
             w_ctx->cmn_ctx.thread_type = args->thread_type;    
+	    // The handler for the main controller thread is stored
+	    // in the worker context 
             w_ctx->cmn_ctx.c_hdl = args->c_hdl;
+	    // Each thread has its thread-idx for lookup
             w_ctx->thread_idx = args->thread_idx;
             break;
         }
@@ -296,11 +301,6 @@ c_main_thread_final_init(struct c_main_ctx *m_ctx)
 // We will have defined a global buffer for the main thread, which can
 // be accessed by c_main_buf.
 
-// Kajal: This is the main thread global buffer. 
-// All messages for new connectionss by the controller and for reading
-// will be placed here.
-struct c_buf_head c_main_buf_head;  
-
 int
 cc_onf_recv_pkt(cc_ofchannel_key_t chann_id, void *of_msg, uint32 *of_msg_len)
 {
@@ -318,6 +318,7 @@ cc_onf_recv_pkt(cc_ofchannel_key_t chann_id, void *of_msg, uint32 *of_msg_len)
 	b = alloc_cbuf(*of_msg_len);
 	if(b == NULL)
 	{
+	    // Kajal: What else to log for a new connection
 	    c_log_err("Buffer node could not be allocated dp-id:0x%x aux-id:0x%x\n",
 	              chann_id->dp_id, chann_id->aux_id);
 	    return;
@@ -334,6 +335,15 @@ cc_onf_recv_pkt(cc_ofchannel_key_t chann_id, void *of_msg, uint32 *of_msg_len)
 }
 
 // This loop should keep running
+// This is where the messsages are inserted in the buffer queue
+
+// Note:
+// As main thread will be responsible for the handling
+// Tying up the main thread to the worker context in the main thread
+// is the key. The logic for the controller operates on ?
+// So, once the information has been put into the ?? , then the logic
+// can get the information from the c_switch_t->cmn_ctx where the 
+// hashtable stores the DPID and switch information 
 static int
 c_thread_event_loop(struct c_cmn_ctx *cmn_ctx)
 {
@@ -361,7 +371,7 @@ c_thread_event_loop(struct c_cmn_ctx *cmn_ctx)
 	return 0; /* Close the socket */
     }
 
-    // Allocate the worker context 
+    // Allocate the worker context
 
     
     // Begin parsing
@@ -482,6 +492,7 @@ c_thread_run(void *ctx)
     return 0;
 }
 
+// Note: Here the main ctx is passed
 void *
 c_thread_main(void *arg)
 {
@@ -494,6 +505,9 @@ c_thread_start(void *hdl, int nthreads, int n_appthreads)
     ctrl_hdl_t *ctrl_hdl = hdl;
     struct thread_alloc_args args = { nthreads, n_appthreads, THREAD_MAIN, 0,
                                       hdl };
+    // Kajal: c_main_ctx and c_worker_ctx are different
+    // c_main_ctx has the worker pool associated in 
+    // struct c_worker_ctx **worker_pool;
     struct c_main_ctx *main_ctx = c_alloc_thread_ctx(&args);
     ctrl_hdl->main_ctx = (void *)main_ctx;
 

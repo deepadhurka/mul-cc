@@ -149,13 +149,18 @@ of_switch_add(c_switch_t *sw)
     struct c_cmn_ctx *cmn_ctx = sw->ctx;
     ctrl_hdl_t *ctrl          = cmn_ctx->c_hdl; 
 
+    // Take the lock for the worker thread
     c_wr_lock(&ctrl->lock);
+
+    // The hashtable key is the DPID
     if (!ctrl->sw_hash_tbl) {
+	// Kajal: ghahtable_new is a function defined in glib
         ctrl->sw_hash_tbl = g_hash_table_new(of_switch_hash_key, 
                                              of_switch_hash_cmp);
     }
 
     g_hash_table_add(ctrl->sw_hash_tbl, sw);
+    // Each switch has a index associated with it 
     if ((sw->alias_id = ipool_get(ctrl->sw_ipool, sw)) < 0) {
         /* Throw a log and continue as we still can continue */
         c_log_err("%s: Cant get alias for switch 0x%llx\n", FN, sw->DPID);
@@ -203,6 +208,8 @@ of_switch_alloc(void *ctx)
     new_switch->last_refresh_time = g_get_monotonic_time();
     c_rw_lock_init(&new_switch->lock);
     c_rw_lock_init(&new_switch->conn.conn_lock);
+    // The head for the main thread is initialized
+    // Similar is used in Main
     cbuf_list_head_init(&new_switch->conn.tx_q);
 
     return new_switch;
@@ -1485,6 +1492,7 @@ of_recv_port_status(c_switch_t *sw, struct cbuf *b)
     c_signal_app_event(sw, b, C_PORT_CHANGE, NULL, &chg_mask);
 }
 
+// Kajal: This is where the new connection gets estabilished
 static void
 of_recv_features_reply(c_switch_t *sw, struct cbuf *b)
 {
@@ -1511,6 +1519,8 @@ of_recv_features_reply(c_switch_t *sw, struct cbuf *b)
     sw->n_ports = n_ports;
 
     if (sw->switch_state != SW_REGISTERED) {
+	//Add the switch table info to the controller handler
+	// 
         of_switch_add(sw);
         sw->switch_state = SW_REGISTERED;
         sw->last_sample_time = g_get_monotonic_time();
@@ -2083,12 +2093,15 @@ of_switch_recv_msg(void *sw_arg, struct cbuf *b)
     RET_OF_MSG_HANDLER(sw, of_handlers, b, oh->type, b->len);
 }
     
+// Kajal: This function gets called through main
+// The main controller is initialized here
 int
 of_ctrl_init(ctrl_hdl_t *c_hdl, size_t nthreads, size_t n_appthreads)
 {
     memset (c_hdl, 0, sizeof(ctrl_hdl_t));
     c_rw_lock_init(&c_hdl->lock);
 
+    // Kajal: 
     c_hdl->sw_ipool = ipool_create(MAX_SWITCHES_PER_CLUSTER, 0);
     assert(c_hdl->sw_ipool);
 

@@ -110,7 +110,13 @@ main(int argc, char **argv)
 
     // Kajal: Initialize the c_main_buf_head
     // As there is only 1 main thread, no need of locks
-    cbuf_list_head_init(&c_main_buf_head);
+    // This has been set as a new variable in'=
+    // ctrl_hdl_t 
+    //
+    // The 2 variables added are:
+    // 1. struct_cbuf_head c_main_buf_head
+    // 2. struct cbuf *main_cbuf_node
+    cbuf_list_head_init(&ctrl_hdl.c_main_buf_head);
 
     clog_default = openclog (progname, CLOG_MUL,
                              LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);

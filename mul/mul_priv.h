@@ -66,7 +66,14 @@ typedef struct ctrl_hdl_ {
 
     c_rw_lock_t              lock;
 
+    // Kajal: This is the switch hashtable
+    // This has the c_switch_t inserted in it
     GHashTable               *sw_hash_tbl; 
+
+    // Kajal: use of ipool is tied with the ??
+    // hashkey composition:
+    // 
+    // switch handle
     ipool_hdl_t              *sw_ipool;
     GSList                   *app_list;
 
@@ -77,6 +84,10 @@ typedef struct ctrl_hdl_ {
 
     int                      n_threads;
     int                      n_appthreads;
+
+    //Kajal: Init the main buffer queue
+    struct cbuf_head c_main_buf_head;
+    struct cbuf *main_buf_node;
 
 } ctrl_hdl_t;
 
