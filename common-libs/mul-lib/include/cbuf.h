@@ -52,14 +52,31 @@ cbuf_list_queue_len(struct cbuf_head *head)
     return 0;
 }
 
+//Kajal: Buffer function details
+
+// Initializes cbuf_head
+// len = 0
+// next = NULL
 void cbuf_list_head_init(struct cbuf_head *head);
+
+// Add the c_struct_buf to tail
 void cbuf_list_queue_tail(struct cbuf_head *head,
                      struct cbuf *buf);
+
+// Inserts element at the head
 void cbuf_list_queue(struct cbuf_head *head,
                      struct cbuf *buf);
+
+// dequeue from the head / first element
 struct cbuf *cbuf_list_dequeue(struct cbuf_head *head);
+
+// Free the list
 void cbuf_list_purge(struct cbuf_head *head);
+
+// Allocate a node
 struct cbuf *alloc_cbuf(size_t len);
+
+// 
 void *cbuf_put(struct cbuf *b, size_t len);    
 size_t cbuf_headroom(struct cbuf *b);
 size_t cbuf_tailroom(struct cbuf *b);
@@ -67,6 +84,8 @@ struct cbuf *cbuf_realloc_tailroom(struct cbuf *b, size_t room, int do_free);
 struct cbuf *cbuf_realloc_headroom(struct cbuf *b, size_t room, int do_free);
 void *cbuf_pull(struct cbuf *b, size_t len);
 void *cbuf_push(struct cbuf *b, size_t len);
+
+// Free a single node
 void free_cbuf(struct cbuf *b);
 
 #endif

@@ -151,6 +151,7 @@ c_worker_thread_final_init(struct c_worker_ctx *w_ctx)
     return 0;
 }
 
+// This is where the switch threads get created. 
 static int
 c_main_thread_final_init(struct c_main_ctx *m_ctx)
 {
@@ -185,6 +186,7 @@ c_main_thread_final_init(struct c_main_ctx *m_ctx)
 
         *w_ctx_slot = w_ctx;
         
+	// Create Named pipes for IPC communication with main thread
         memset(ipc_path_str, 0, sizeof(ipc_path_str));
         snprintf(ipc_path_str, 63, "%s%d", C_IPC_PATH, thread_idx); 
         if (mkfifo(ipc_path_str, S_IRUSR | S_IWUSR | S_IWGRP) == -1
@@ -193,6 +195,8 @@ c_main_thread_final_init(struct c_main_ctx *m_ctx)
             assert(0);
         }
 
+	// Worker context is created for each thread, but, we will not
+	// be using it.
         pthread_create(&w_ctx->cmn_ctx.thread, NULL, c_thread_main, w_ctx);
 
         w_ctx->main_wrk_conn.conn_type = C_CONN_TYPE_FILE;
@@ -239,13 +243,16 @@ c_main_thread_final_init(struct c_main_ctx *m_ctx)
 
 
     /* Switch listener */
+    // Kajal: No need to create a socket to listen on. 
+    // Library will use the callback defined in MUL to do processing.
+/*
     c_listener = c_server_socket_create(INADDR_ANY, C_LISTEN_PORT);
     assert(c_listener > 0);
-    m_ctx->c_accept_event = event_new(m_ctx->cmn_ctx.base, c_listener, 
+    m_ctx->c_accept_event = event_new(m_ctx->cmn_ctx.base, -1, 
                                       EV_READ|EV_PERSIST,
-                                      c_accept, (void*)m_ctx);
+                                      cc_of_new_conn_event_handler, (void*)m_ctx);
     event_add(m_ctx->c_accept_event, NULL);
-
+*/
     /* Application listener */
     c_listener = c_server_socket_create(INADDR_ANY, C_APP_LISTEN_PORT);
     assert(c_listener);
@@ -269,11 +276,97 @@ c_main_thread_final_init(struct c_main_ctx *m_ctx)
     return 0;
 }
 
+// Implementation of CC ONF function
+// For now the parameters are based on MUL defines to compile
+// These need to be changed when the library is integrated.
+//
+// Algo:
+// As all packets are going to be handled by the main thread, 
+// we will insert the packet in the main thread buffer. 
+// The main thread will read messages from the buffer and process
+// them based on if they are new connection or a data packet. 
+//
+// Note: Here we might have to check the impact on the control packets,
+// if there are any timeouts or response dependencies to the library.
+// 
+// Also, as the OF-channel key is passed here, we know what channel the 
+// message is for. But, I don't think we will be using this parameter.
+//
+// The main thread does not have c_conn_t struct defined for it. 
+// We will have defined a global buffer for the main thread, which can
+// be accessed by c_main_buf.
+
+// Kajal: This is the main thread global buffer. 
+// All messages for new connectionss by the controller and for reading
+// will be placed here.
+struct c_buf_head c_main_buf_head;  
+
+int
+cc_onf_recv_pkt(cc_ofchannel_key_t chann_id, void *of_msg, uint32 *of_msg_len)
+{
+    
+    struct cbuf *b = NULL;
+    
+    if(cbuf_list_queue_len(&c_main_buf_head) > 1024) 
+    {
+	// Throw an error
+	c_log_err("Main thread buffer queue is full\n");
+    }
+    else
+    {
+	// Allocate
+	b = alloc_cbuf(*of_msg_len);
+	if(b == NULL)
+	{
+	    c_log_err("Buffer node could not be allocated dp-id:0x%x aux-id:0x%x\n",
+	              chann_id->dp_id, chann_id->aux_id);
+	    return;
+	}
+
+	// if_msg should be freed by library assuming that 
+	// buffer should copy it.
+	memcpy(b->data, of_msg, (*of_msg_len));
+	// Insert buffer in queue	
+	cbuf_list_queue_tail(&c_main_buf_head, b);
+    }
+
+    return 0;
+}
+
+// This loop should keep running
 static int
 c_thread_event_loop(struct c_cmn_ctx *cmn_ctx)
 {
+    c_switch_t *sw = NULL;
+    struct cbuf *b = NULL;
+    
     c_log_debug("%s: tid(%u)", __FUNCTION__, (unsigned int)pthread_self());
-    return event_base_dispatch(cmn_ctx->base);
+    // instead of looping on the socket fd, the main thread
+    // will be looping on the cbuf.
+    
+    // Not considering the application threads for now
+    //return event_base_dispatch(cmn_ctx->base);
+
+    // check cbuf
+    // get first message from buffer and begin the processing.
+    if(c_main_buf->len)
+    {
+	// Get the first message
+	b = c_buf_list_dequeue(&c_main_buf_head);
+    }
+
+    if (!of_hdr_valid(b->data)) 
+    {
+	c_log_err("%s: Corrupted header", FN);
+	return 0; /* Close the socket */
+    }
+
+    // Allocate the worker context 
+
+    
+    // Begin parsing
+    sw = of_switch_alloc(c_wrk_ctx);
+    of_switch_recv_msg(sw, b);
 }
 
 static int

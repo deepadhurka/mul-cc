@@ -1521,6 +1521,7 @@ of_recv_features_reply(c_switch_t *sw, struct cbuf *b)
     }
 }
 
+// Kajal: This is where the message parsing is done
 int __fastpath
 of_flow_extract(uint8_t *pkt, struct flow *flow, 
                 uint16_t in_port, size_t pkt_len)
@@ -2071,6 +2072,7 @@ of_switch_recv_msg(void *sw_arg, struct cbuf *b)
     if (unlikely(sw->datapath_id == 0
         && oh->type != OFPT_ECHO_REQUEST
         && oh->type != OFPT_FEATURES_REPLY)) {
+	// Kajal: New connection
         of_send_features_request(sw);
         return;
     }
