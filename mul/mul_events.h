@@ -36,6 +36,7 @@ void    c_switch_thread_write_event(evutil_socket_t fd, short events, void *arg)
 #define HAVE_SG_TX 1
 
 #ifdef HAVE_SG_TX
+//Kajal: This is also a socket write function: relpace with library call
 static inline void
 c_thread_sg_tx_sync(void *conn_arg)
 {
@@ -46,9 +47,12 @@ c_thread_sg_tx_sync(void *conn_arg)
     c_wr_unlock(&conn->conn_lock);
 }
 
+// Kajal: This is where the packet will get written in the library queue
+// Call the library API here, the message is in the cbuf *b
 static inline void
 c_thread_tx(void *conn_arg, struct cbuf *b, bool only_q)
 {
+/*
     c_conn_t *conn = conn_arg;
 
     c_wr_lock(&conn->conn_lock);
@@ -65,6 +69,9 @@ c_thread_tx(void *conn_arg, struct cbuf *b, bool only_q)
     }
 
     c_wr_unlock(&conn->conn_lock);
+    */
+
+    // call the library API 
 }
 #else
 static inline void

@@ -27,6 +27,7 @@
 #include "lock.h"
 #include "idx_pool.h"
 
+// 
 int
 ipool_get(ipool_hdl_t *pool, void *priv)
 {
@@ -69,6 +70,8 @@ ipool_put(ipool_hdl_t *pool, int ret_idx)
     return 0;
 }
 
+// Here, create ipool for MAX_SWITCHES_PER_CLUSTER
+// 
 ipool_hdl_t *
 ipool_create(size_t sz, uint32_t start_idx)
 {
@@ -84,6 +87,7 @@ ipool_create(size_t sz, uint32_t start_idx)
         return NULL;
     }
 
+    // 128 * ipool_arr_t
     pool->idx_arr = calloc(1, sz * sizeof(ipool_arr_t));
     if (pool->idx_arr == NULL) {
         free(pool);

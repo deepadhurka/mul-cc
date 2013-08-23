@@ -38,6 +38,9 @@
 
 #define C_MAX_TX_RETRIES   (4)
 
+// Kajal: cbuf: This is defined on a per thread basis
+// In our design, everything is handled by the main thread
+// Therefore, there will be 1 created for the main thread. 
 typedef struct c_conn_
 {
     void                    *rd_event;
