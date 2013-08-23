@@ -121,6 +121,7 @@ c_alloc_thread_ctx(struct thread_alloc_args *args)
     return ctx;
 }
 
+// Kajal: C worker thread is initialized with the w_ctx
 static int
 c_worker_thread_final_init(struct c_worker_ctx *w_ctx)
 {
@@ -172,9 +173,11 @@ c_main_thread_final_init(struct c_main_ctx *m_ctx)
                                            0, 
                                            m_ctx->cmn_ctx.c_hdl };
 
-    m_ctx->cmn_ctx.base = event_base_new();
-    assert(m_ctx->cmn_ctx.base); 
+    // Kajal: No event handling
+    //m_ctx->cmn_ctx.base = event_base_new();
+    //assert(m_ctx->cmn_ctx.base); 
 
+    // Allocate double pointer with memory set to 0 
     m_ctx->worker_pool = calloc(m_ctx->nthreads, sizeof(void *));
     assert(m_ctx->worker_pool);
 
@@ -183,6 +186,8 @@ c_main_thread_final_init(struct c_main_ctx *m_ctx)
 
     /* Worker thread creation */
     for (thread_idx = 0; thread_idx < m_ctx->nthreads; thread_idx++) {
+	
+	// Indexing the worker thread in the main_ctx
         w_ctx_slot = c_tid_to_ctx_slot(m_ctx, thread_idx);
 
         t_args.thread_idx = thread_idx;
@@ -204,10 +209,14 @@ c_main_thread_final_init(struct c_main_ctx *m_ctx)
 	// be using it.
         pthread_create(&w_ctx->cmn_ctx.thread, NULL, c_thread_main, w_ctx);
 
+	// Save the fd for the named pipes in the worker context
+	// Main ctx has the w_ctx saved. So main thread knows which is the 
+	// fd on which the IPC communication needs to begin 
         w_ctx->main_wrk_conn.conn_type = C_CONN_TYPE_FILE;
         w_ctx->main_wrk_conn.fd = open(ipc_path_str, O_WRONLY);
         assert(w_ctx->main_wrk_conn.fd > 0);
 
+	// Worker thread context is saved in the main_ctx and the controller handle
         ctrl_hdl->worker_ctx_list[thread_idx] = (void *)w_ctx;
 
     }
@@ -345,7 +354,7 @@ cc_onf_recv_pkt(cc_ofchannel_key_t chann_id, void *of_msg, uint32 *of_msg_len)
 // can get the information from the c_switch_t->cmn_ctx where the 
 // hashtable stores the DPID and switch information 
 static int
-c_thread_event_loop(struct c_cmn_ctx *cmn_ctx)
+c_thread_event_loop_lib_support(struct c_main_ctx *main_ctx)
 {
     c_switch_t *sw = NULL;
     struct cbuf *b = NULL;
@@ -371,11 +380,10 @@ c_thread_event_loop(struct c_cmn_ctx *cmn_ctx)
 	return 0; /* Close the socket */
     }
 
-    // Allocate the worker context
-
-    
-    // Begin parsing
-    sw = of_switch_alloc(c_wrk_ctx);
+    // No need to allocate the worker thread
+    // Pass the main_ctx
+    // sw = of_switch_alloc(c_wrk_ctx);
+    sw = of_switch_alloc(main_ctx);
     of_switch_recv_msg(sw, b);
 }
 
@@ -385,13 +393,14 @@ c_main_thread_run(struct c_main_ctx *m_ctx)
 
     switch(m_ctx->cmn_ctx.run_state) {
     case THREAD_STATE_PRE_INIT:
+	// Kajal: This is for spurious signal handling
         signal(SIGPIPE, SIG_IGN);
         m_ctx->cmn_ctx.run_state = THREAD_STATE_FINAL_INIT;
         break;
     case THREAD_STATE_FINAL_INIT:
         return c_main_thread_final_init(m_ctx);
     case THREAD_STATE_RUNNING:
-        return c_thread_event_loop((void *)m_ctx);
+        return c_thread_event_loop_lib_support((void *)m_ctx);
     }
     return 0;
 }
@@ -471,6 +480,12 @@ c_app_thread_run(struct c_app_ctx *app_ctx)
     return 0;
 }
 
+// Kajal: This function is run in a while loop.
+// Basically, the state-machine for:
+// PRE-INIT
+// FINAL-INIT
+// RUNNING STATE 
+// is managed from here
 static int
 c_thread_run(void *ctx)
 {
@@ -478,9 +493,15 @@ c_thread_run(void *ctx)
     
     switch (cmn_ctx->thread_type) {
     case THREAD_MAIN:
+    // Kajal: First is PRE-INIT, FINAL-INIT, RUNNING
+    // This is the main ctx.
        return c_main_thread_run(ctx);
+
+    // With this design change, the worker threads are not needed any longer   
     case THREAD_WORKER:
        return c_worker_thread_run(ctx); 
+
+    // Kajal: We will think about VTY and APP threads later.   
     case THREAD_VTY:
        return c_vty_thread_run(ctx);
     case THREAD_APP:
@@ -508,9 +529,11 @@ c_thread_start(void *hdl, int nthreads, int n_appthreads)
     // Kajal: c_main_ctx and c_worker_ctx are different
     // c_main_ctx has the worker pool associated in 
     // struct c_worker_ctx **worker_pool;
+    // The main context has the handler to the controller m_ctx->cmn_ctx.c_hdl
     struct c_main_ctx *main_ctx = c_alloc_thread_ctx(&args);
     ctrl_hdl->main_ctx = (void *)main_ctx;
 
+    // This is with attribute of pre-init
     pthread_create(&main_ctx->cmn_ctx.thread, NULL, c_thread_main, main_ctx);
     return 0;
 }

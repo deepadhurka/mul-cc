@@ -195,6 +195,7 @@ of_switch_del(c_switch_t *sw)
     c_signal_app_event(sw, NULL, C_DP_UNREG, NULL, NULL);
 }
 
+// Kajal: The worker ctx is passed here
 void *
 of_switch_alloc(void *ctx)
 {
@@ -204,6 +205,9 @@ of_switch_alloc(void *ctx)
     assert(new_switch);
 
     new_switch->switch_state = SW_INIT;
+    // Kajal: As the thread is main, the ctx of the main thread will be saved here
+    // This is a void pointer; so change it in locations where this gets mapped to w_ctx
+    // Basically, everything points to main or either uses the library
     new_switch->ctx = ctx;
     new_switch->last_refresh_time = g_get_monotonic_time();
     c_rw_lock_init(&new_switch->lock);
@@ -215,6 +219,9 @@ of_switch_alloc(void *ctx)
     return new_switch;
 }
 
+// Kajal: This call can be replaced by the library call
+// Basically, there is a lookup based on the dpid here from the controller
+// hashtable
 c_switch_t *
 of_switch_get(ctrl_hdl_t *ctrl, uint64_t dpid)
 {
@@ -225,6 +232,9 @@ of_switch_get(ctrl_hdl_t *ctrl, uint64_t dpid)
 
     c_rd_lock(&ctrl->lock);
 
+    // The controller had the link to the hashtable
+    // So, basically, its a global DS which gets finally updated
+    // No need to think about main and worker threads at this point
     found = g_hash_table_lookup_extended(ctrl->sw_hash_tbl, &key, 
                                          NULL, (gpointer*)&sw);
     if (found) {
@@ -293,6 +303,7 @@ of_switch_put(c_switch_t *sw)
     }
 }
 
+// Kajal: What is this message for ??
 void
 of_switch_detail_info(c_switch_t *sw,
                       struct ofp_switch_features *osf)
@@ -916,6 +927,8 @@ __of_flow_lookup_rule(c_switch_t *sw UNUSED, struct flow *fl, c_flow_tbl_t *tbl)
 }
 
 
+// Kajal: This is where the OF Flow message needs to be sent to the switch
+// 
 static int
 of_flow_rule_add(c_switch_t *sw, struct of_flow_mod_params *fl_parms) 
 {
@@ -1149,6 +1162,8 @@ of_flow_traverse_tbl_all(c_switch_t *sw, void *u_arg, flow_parser_fn fn)
  
 }
 
+// Kajal: Create the open flow entry in the controller 
+// This is not required, if the call will be from the library
 static void
 of_switch_flow_tbl_create(c_switch_t *sw)
 {
@@ -1176,6 +1191,8 @@ of_switch_flow_tbl_create(c_switch_t *sw)
     c_wr_unlock(&sw->lock);
 }
 
+// Kajal: This is where the Open flow table entries need to be removed
+// No need of this function if the library is going to update the OF connection
 void
 of_switch_flow_tbl_delete(c_switch_t *sw)
 {
@@ -1201,6 +1218,7 @@ of_switch_flow_tbl_delete(c_switch_t *sw)
     c_wr_unlock(&sw->lock);
 }
 
+// No need for now
 void
 of_switch_flow_tbl_reset(c_switch_t *sw)
 {
@@ -1234,6 +1252,7 @@ of_send_features_request(c_switch_t *sw)
     /* Send OFPT_FEATURES_REQUEST. */
     b = of_prep_msg(sizeof(struct ofp_header), OFPT_FEATURES_REQUEST, 0);
 
+    // Kajal: place message in library queue
     c_thread_tx(&sw->conn, b, true);
 }
 
@@ -1492,7 +1511,8 @@ of_recv_port_status(c_switch_t *sw, struct cbuf *b)
     c_signal_app_event(sw, b, C_PORT_CHANGE, NULL, &chg_mask);
 }
 
-// Kajal: This is where the new connection gets estabilished
+// Kajal: This is where the new connection gets saved in the controller
+// Here, we can call the library API to save the information in the library
 static void
 of_recv_features_reply(c_switch_t *sw, struct cbuf *b)
 {
@@ -1503,6 +1523,7 @@ of_recv_features_reply(c_switch_t *sw, struct cbuf *b)
                 - offsetof(struct ofp_switch_features, ports))
             / sizeof *osf->ports);
 
+    // Kajal: Based on the packet the information is present in the buffer
     sw->datapath_id = ntohll(osf->datapath_id);
     sw->version     = osf->header.version;
     sw->n_buffers   = ntohl(osf->n_buffers);
@@ -1807,6 +1828,7 @@ of_dfl_port_status(c_switch_t *sw UNUSED, uint32_t cfg UNUSED, uint32_t state UN
     return 0;
 }
 
+// KAjal: This is where the data packet is sensed
 static void __fastpath
 of_recv_packet_in(c_switch_t *sw, struct cbuf *b)
 {
@@ -2093,7 +2115,7 @@ of_switch_recv_msg(void *sw_arg, struct cbuf *b)
     RET_OF_MSG_HANDLER(sw, of_handlers, b, oh->type, b->len);
 }
     
-// Kajal: This function gets called through main
+// This function gets called through main
 // The main controller is initialized here
 int
 of_ctrl_init(ctrl_hdl_t *c_hdl, size_t nthreads, size_t n_appthreads)
@@ -2101,10 +2123,11 @@ of_ctrl_init(ctrl_hdl_t *c_hdl, size_t nthreads, size_t n_appthreads)
     memset (c_hdl, 0, sizeof(ctrl_hdl_t));
     c_rw_lock_init(&c_hdl->lock);
 
-    // Kajal: 
+    // Keep the ipool for applications
     c_hdl->sw_ipool = ipool_create(MAX_SWITCHES_PER_CLUSTER, 0);
     assert(c_hdl->sw_ipool);
 
+    // The worker context will not be used
     c_hdl->worker_ctx_list = (struct c_cmn_ctx **)malloc(nthreads * sizeof(void *));
     assert(c_hdl->worker_ctx_list);
 
