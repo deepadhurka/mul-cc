@@ -17,7 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include "mul.h"
-
+	    
 void  *
 alloc_ipc_msg(uint8_t ipc_type, uint16_t ipc_msg_type)
 {
