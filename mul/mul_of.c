@@ -143,13 +143,15 @@ of_switch_hash_cmp (const void *p1, const void *p2)
     }
 }
 
+
+// Kajal: Add switch info in local DS
 void
 of_switch_add(c_switch_t *sw)
 {
     struct c_cmn_ctx *cmn_ctx = sw->ctx;
     ctrl_hdl_t *ctrl          = cmn_ctx->c_hdl; 
 
-    // Take the lock for the worker thread
+    // Take the lock for the controller - common DS
     c_wr_lock(&ctrl->lock);
 
     // The hashtable key is the DPID
@@ -170,6 +172,7 @@ of_switch_add(c_switch_t *sw)
 
 }
 
+// Del switch info from local DS
 void
 of_switch_del(c_switch_t *sw)
 {
@@ -195,7 +198,7 @@ of_switch_del(c_switch_t *sw)
     c_signal_app_event(sw, NULL, C_DP_UNREG, NULL, NULL);
 }
 
-// Kajal: The worker ctx is passed here
+// Kajal: The main_ctx is passed here for the switches
 void *
 of_switch_alloc(void *ctx)
 {
@@ -303,7 +306,6 @@ of_switch_put(c_switch_t *sw)
     }
 }
 
-// Kajal: What is this message for ??
 void
 of_switch_detail_info(c_switch_t *sw,
                       struct ofp_switch_features *osf)
@@ -1325,6 +1327,7 @@ __of_send_pkt_out(c_switch_t *sw, struct of_pkt_out_params *parms)
     c_thread_sg_tx_sync(&sw->conn);
 }
 
+// Kajal: This is where the flow entry gets added
 static void
 of_send_flow_add(c_switch_t *sw, c_fl_entry_t *ent, uint32_t buffer_id)
 {
