@@ -381,10 +381,17 @@ c_thread_event_loop_lib_support(struct c_main_ctx *main_ctx)
     }
 
     // No need to allocate the worker thread
-    // Pass the main_ctx
+    // Pass the main_ctx now. Previously, this was:
     // sw = of_switch_alloc(c_wrk_ctx);
     sw = of_switch_alloc(main_ctx);
     of_switch_recv_msg(sw, b);
+}
+
+static int
+c_thread_event_loop(struct c_cmn_ctx *cmn_ctx)
+{
+    c_log_debug("%s: tid(%u)", __FUNCTION__, (unsigned int)pthread_self());
+    return event_base_dispatch(cmn_ctx->base);
 }
 
 static int
@@ -530,6 +537,10 @@ c_thread_start(void *hdl, int nthreads, int n_appthreads)
     // c_main_ctx has the worker pool associated in 
     // struct c_worker_ctx **worker_pool;
     // The main context has the handler to the controller m_ctx->cmn_ctx.c_hdl
+
+    // In this MUL model, we will be operating on the main_ctx and will add the switch
+    // information in ctrl_hdl:
+    // GHashTable *sw_hash_tbl;
     struct c_main_ctx *main_ctx = c_alloc_thread_ctx(&args);
     ctrl_hdl->main_ctx = (void *)main_ctx;
 
