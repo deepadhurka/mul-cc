@@ -109,9 +109,9 @@ main(int argc, char **argv)
     of_ctrl_init(&ctrl_hdl, sthreads, athreads);
 
     // Add the library init function
+    // cc_of_lib_init(CONTROLLER, SERVER);
 
-
-    // Initialize the c_main_buf_head
+    // Initialize the c_main_buf_head in the ctrl_handler
     //
     // The 2 variables added are:
     // 1. struct_cbuf_head c_main_buf_head
@@ -123,7 +123,7 @@ main(int argc, char **argv)
     clog_set_level(NULL, CLOG_DEST_SYSLOG, LOG_WARNING);
     clog_set_level(NULL, CLOG_DEST_STDOUT, LOG_DEBUG);
 
-    // This is where the switch threads get created
+    // This is where the switch threads get created.
     // The switch threads are no longer required in this MUL
     // model but we will keep them to resolve issues while testing.
     c_thread_start(&ctrl_hdl, sthreads, athreads);

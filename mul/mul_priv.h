@@ -70,10 +70,8 @@ typedef struct ctrl_hdl_ {
     // This has the c_switch_t inserted in it
     GHashTable               *sw_hash_tbl; 
 
-    // Kajal: use of ipool is tied with the ??
-    // hashkey composition:
-    // 
-    // switch handle
+    // Kajal: use of ipool is tied with the thread idx
+    // It is just an index for the switches (used by application)
     ipool_hdl_t              *sw_ipool;
     GSList                   *app_list;
 
