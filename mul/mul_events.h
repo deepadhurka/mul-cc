@@ -50,10 +50,14 @@ c_thread_sg_tx_sync(void *conn_arg)
 // Kajal: This is where the packet will get written in the library queue
 // Call the library API here, the message is in the cbuf *b
 static inline void
-c_thread_tx(void *conn_arg, struct cbuf *b, bool only_q)
+c_thread_tx(void *conn, struct cbuf *b, bool only_q, uint64_t datapath_id)
 {
+    //c_switch_t *sw = sw_arg;
+    
+    // call the library API 
+    cc_of_send_pkt(datapath_id, 0/*aux-id is not supported here*/, 
+                   (void *)b->data, b->len);
 /*
-    c_conn_t *conn = conn_arg;
 
     c_wr_lock(&conn->conn_lock);
     if (cbuf_list_queue_len(&conn->tx_q)  > C_TX_BUF_SZ) {
@@ -71,7 +75,6 @@ c_thread_tx(void *conn_arg, struct cbuf *b, bool only_q)
     c_wr_unlock(&conn->conn_lock);
     */
 
-    // call the library API 
 }
 #else
 static inline void
@@ -81,10 +84,14 @@ c_thread_sg_tx_sync(void *conn_arg UNUSED)
 }
 
 static inline void
-c_thread_tx(void *conn_arg, struct cbuf *b, bool only_q UNUSED)
+c_thread_tx(void *conn_arg, struct cbuf *b, bool only_q UNUSED, uint64_t datapath_id)
 {
-    c_conn_t *conn = conn_arg;
+    //c_switch_t *sw = sw_arg;
 
+    // call the library API 
+    cc_of_send_pkt(sw->datapath_id, 0/*aux-id is not supported here*/, 
+                   (void *)b->data, b->len/* len of the data */);
+/*
     c_wr_lock(&conn->conn_lock);
     if (cbuf_list_queue_len(&conn->tx_q)  > C_TX_BUF_SZ) {
         c_wr_unlock(&conn->conn_lock);
@@ -97,6 +104,7 @@ c_thread_tx(void *conn_arg, struct cbuf *b, bool only_q UNUSED)
     c_socket_write_nonblock_loop(conn, c_write_event_sched);
 
     c_wr_unlock(&conn->conn_lock);
+*/
 }
 
 #endif

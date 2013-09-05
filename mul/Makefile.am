@@ -14,7 +14,9 @@ INCLUDES = -I. -I$(top_srcdir) -I$(top_srcdir)/common/ \
            -I$(top_srcdir)/services/loadable/topo_routing/ \
            -I$(top_srcdir)/common-libs/3rd-party/derived-lib/include/ \
            -I$(top_srcdir)/common-libs/3rd-party/quagga-lib/include/ \
-           -I$(top_srcdir)/common-libs/mul-lib/include/
+           -I$(top_srcdir)/common-libs/mul-lib/include/ \
+	   -I/usr/local/lib \
+           -I/usr/local/include
 
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
 
@@ -44,6 +46,6 @@ mul_LDADD = $(top_srcdir)/common-libs/3rd-party/derived-lib/.libs/libutil.a  \
             $(top_srcdir)/common-libs/3rd-party/quagga-lib/.libs/libzebra.a \
             $(top_srcdir)/common-libs/mul-lib/.libs/libmulutil.a 
 
-mul_LDFLAGS = $(LD_FLAGS) -lpthread -lglib-2.0 -levent -lcrypt 
+mul_LDFLAGS = $(LD_FLAGS) -lpthread -lglib-2.0 -levent -lcrypt -lccof
 
 noinst_HEADERS = mul_events.h mul.h mul_of.h mul_priv.h mul_thread.h

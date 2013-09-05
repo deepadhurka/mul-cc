@@ -349,4 +349,21 @@ do { \
 #define get_prof(X, str)
 #endif
 
+// Defines from the Libccof library 
+// We will use these till the APIs are not modified to 
+// use the values
+/* handle to controller to pass around */
+ctrl_hdl_t ctrl_hdl;
+
+/* mapping of channel key (dp-id/aux-id) to rw_sockfd) */
+typedef struct cc_ofchannel_key_ {
+    uint64_t  dp_id;
+    uint8_t   aux_id;
+}cc_ofchannel_key_t;
+
+
+int
+mul_cc_recv_pkt(cc_ofchannel_key_t chann_id, void *of_msg, uint32_t msg_len);
+
+
 #endif
