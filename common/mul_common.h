@@ -55,4 +55,9 @@
 #include "mul_packet.h"
 #include "mul_services.h"
 
+// For compiling the library header files
+//#include "cc_of_global.h"
+//#include "cc_of_lib.h"
+
+
 #endif

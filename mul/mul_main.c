@@ -31,7 +31,8 @@ static struct option longopts[] =
 const char *pid_file = C_PID_PATH;
 
 /* handle to controller to pass around */
-ctrl_hdl_t ctrl_hdl;
+// This handle is now global
+// ctrl_hdl_t ctrl_hdl;
 
 /* Help information display. */
 static void
@@ -74,6 +75,7 @@ main(int argc, char **argv)
         case 'd':
             daemon_mode = 1;
             break;
+	// Kajal: Switch threads are a no-op
         case 'S': 
             sthreads = atoi(optarg);
             if (sthreads < 0 || sthreads > 16) {
@@ -109,7 +111,7 @@ main(int argc, char **argv)
     of_ctrl_init(&ctrl_hdl, sthreads, athreads);
 
     // Add the library init function
-    // cc_of_lib_init(CONTROLLER, SERVER);
+    cc_of_lib_init(CONTROLLER, SERVER);
 
     // Initialize the c_main_buf_head in the ctrl_handler
     //
@@ -123,9 +125,7 @@ main(int argc, char **argv)
     clog_set_level(NULL, CLOG_DEST_SYSLOG, LOG_WARNING);
     clog_set_level(NULL, CLOG_DEST_STDOUT, LOG_DEBUG);
 
-    // This is where the switch threads get created.
     // The switch threads are no longer required in this MUL
-    // model but we will keep them to resolve issues while testing.
     c_thread_start(&ctrl_hdl, sthreads, athreads);
     while (1) {
         sleep(1);

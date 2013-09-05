@@ -121,6 +121,7 @@ c_alloc_thread_ctx(struct thread_alloc_args *args)
     return ctx;
 }
 
+/*
 // Kajal: C worker thread is initialized with the w_ctx
 static int
 c_worker_thread_final_init(struct c_worker_ctx *w_ctx)
@@ -147,7 +148,7 @@ c_worker_thread_final_init(struct c_worker_ctx *w_ctx)
                                             (void *)w_ctx);
     evtimer_add(w_ctx->worker_timer_event, &tv);
 
-    /* Set cpu affinity */
+    // Set cpu affinity 
     CPU_ZERO(&cpu);
     CPU_SET(w_ctx->thread_idx, &cpu);
     pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpu);
@@ -156,6 +157,7 @@ c_worker_thread_final_init(struct c_worker_ctx *w_ctx)
 
     return 0;
 }
+*/
 
 // This is where the switch threads get created. 
 static int
@@ -168,23 +170,20 @@ c_main_thread_final_init(struct c_main_ctx *m_ctx)
     char                        ipc_path_str[64];
     int                         thread_idx;
     ctrl_hdl_t                  *ctrl_hdl = m_ctx->cmn_ctx.c_hdl;
-    struct thread_alloc_args    t_args = { 0, 0, 
-                                           THREAD_WORKER, 
-                                           0, 
-                                           m_ctx->cmn_ctx.c_hdl };
+//    struct thread_alloc_args    t_args = { 0, 0, 
+//                                           THREAD_WORKER, 
+//                                           0, 
+//                                           m_ctx->cmn_ctx.c_hdl };
 
     // Kajal: No event handling
     //m_ctx->cmn_ctx.base = event_base_new();
     //assert(m_ctx->cmn_ctx.base); 
 
-    // Allocate double pointer with memory set to 0 
-    m_ctx->worker_pool = calloc(m_ctx->nthreads, sizeof(void *));
-    assert(m_ctx->worker_pool);
+//    m_ctx->worker_pool = calloc(m_ctx->nthreads, sizeof(void *));
+//    assert(m_ctx->worker_pool);
 
-    m_ctx->app_pool = calloc(m_ctx->n_appthreads, sizeof(void *));
-    assert(m_ctx->app_pool);
-
-    /* Worker thread creation */
+/*
+    // Worker thread creation 
     for (thread_idx = 0; thread_idx < m_ctx->nthreads; thread_idx++) {
 	
 	// Indexing the worker thread in the main_ctx
@@ -221,6 +220,21 @@ c_main_thread_final_init(struct c_main_ctx *m_ctx)
 
     }
 
+    // Switch listener 
+    // Kajal: No need to create a socket to listen on. 
+    // Library will use the callback defined in MUL to do processing.
+    c_listener = c_server_socket_create(INADDR_ANY, C_LISTEN_PORT);
+
+    assert(c_listener > 0);
+    m_ctx->c_accept_event = event_new(m_ctx->cmn_ctx.base, -1, 
+                                      EV_READ|EV_PERSIST,
+                                      cc_of_new_conn_event_handler, (void*)m_ctx);
+    event_add(m_ctx->c_accept_event, NULL);
+*/
+
+    m_ctx->app_pool = calloc(m_ctx->n_appthreads, sizeof(void *));
+    assert(m_ctx->app_pool);
+
     /* Application thread creation */
     for (thread_idx = 0; thread_idx < m_ctx->n_appthreads; thread_idx++) {
         app_ctx_slot = c_tid_to_app_ctx_slot(m_ctx, thread_idx);
@@ -245,7 +259,6 @@ c_main_thread_final_init(struct c_main_ctx *m_ctx)
         app_ctx->main_wrk_conn.conn_type = C_CONN_TYPE_FILE;
         app_ctx->main_wrk_conn.fd = open(ipc_path_str, O_WRONLY);
         assert(app_ctx->main_wrk_conn.fd > 0);
-
     }
 
     /* VTY thread creation */    
@@ -255,18 +268,6 @@ c_main_thread_final_init(struct c_main_ctx *m_ctx)
     pthread_create(&vty_ctx->cmn_ctx.thread, NULL, c_thread_main, vty_ctx);
 
 
-
-    /* Switch listener */
-    // Kajal: No need to create a socket to listen on. 
-    // Library will use the callback defined in MUL to do processing.
-/*
-    c_listener = c_server_socket_create(INADDR_ANY, C_LISTEN_PORT);
-    assert(c_listener > 0);
-    m_ctx->c_accept_event = event_new(m_ctx->cmn_ctx.base, -1, 
-                                      EV_READ|EV_PERSIST,
-                                      cc_of_new_conn_event_handler, (void*)m_ctx);
-    event_add(m_ctx->c_accept_event, NULL);
-*/
     /* Application listener */
     c_listener = c_server_socket_create(INADDR_ANY, C_APP_LISTEN_PORT);
     assert(c_listener);
@@ -311,12 +312,12 @@ c_main_thread_final_init(struct c_main_ctx *m_ctx)
 // be accessed by c_main_buf.
 
 int
-cc_onf_recv_pkt(cc_ofchannel_key_t chann_id, void *of_msg, uint32 *of_msg_len)
+mul_cc_recv_pkt(uint64_t dp_id, uint8_t aux_id, void *of_msg, uint32_t msg_len)
 {
     
     struct cbuf *b = NULL;
     
-    if(cbuf_list_queue_len(&c_main_buf_head) > 1024) 
+    if(cbuf_list_queue_len(&ctrl_hdl.c_main_buf_head) > 1024) 
     {
 	// Throw an error
 	c_log_err("Main thread buffer queue is full\n");
@@ -324,20 +325,21 @@ cc_onf_recv_pkt(cc_ofchannel_key_t chann_id, void *of_msg, uint32 *of_msg_len)
     else
     {
 	// Allocate
-	b = alloc_cbuf(*of_msg_len);
+	b = alloc_cbuf(msg_len);
 	if(b == NULL)
 	{
 	    // Kajal: What else to log for a new connection
-	    c_log_err("Buffer node could not be allocated dp-id:0x%x aux-id:0x%x\n",
-	              chann_id->dp_id, chann_id->aux_id);
-	    return;
+	    // chann_id.aux_id -- is of type uint64_t 
+	    // c_log_err("Buffer node could not be allocated dp-id:0x%x aux-id:0x%x\n",
+	    //          chann_id.dp_id, chann_id.aux_id);
+	    //return 0;
 	}
 
 	// if_msg should be freed by library assuming that 
 	// buffer should copy it.
-	memcpy(b->data, of_msg, (*of_msg_len));
+	memcpy(b->data, of_msg, msg_len);
 	// Insert buffer in queue	
-	cbuf_list_queue_tail(&c_main_buf_head, b);
+	cbuf_list_queue_tail(&ctrl_hdl.c_main_buf_head, b);
     }
 
     return 0;
@@ -368,10 +370,10 @@ c_thread_event_loop_lib_support(struct c_main_ctx *main_ctx)
 
     // check cbuf
     // get first message from buffer and begin the processing.
-    if(c_main_buf->len)
+    if(cbuf_list_queue_len(&ctrl_hdl.c_main_buf_head))
     {
 	// Get the first message
-	b = c_buf_list_dequeue(&c_main_buf_head);
+	b = cbuf_list_dequeue(&ctrl_hdl.c_main_buf_head);
     }
 
     if (!of_hdr_valid(b->data)) 
@@ -385,6 +387,8 @@ c_thread_event_loop_lib_support(struct c_main_ctx *main_ctx)
     // sw = of_switch_alloc(c_wrk_ctx);
     sw = of_switch_alloc(main_ctx);
     of_switch_recv_msg(sw, b);
+
+    return 0;
 }
 
 static int
@@ -412,6 +416,7 @@ c_main_thread_run(struct c_main_ctx *m_ctx)
     return 0;
 }
 
+/*
 static int
 c_worker_thread_run(struct c_worker_ctx *w_ctx)
 {
@@ -431,6 +436,7 @@ c_worker_thread_run(struct c_worker_ctx *w_ctx)
 
     return 0;
 }
+*/
 
 static int
 c_app_thread_pre_init(struct c_app_ctx *app_ctx)
@@ -505,8 +511,8 @@ c_thread_run(void *ctx)
        return c_main_thread_run(ctx);
 
     // With this design change, the worker threads are not needed any longer   
-    case THREAD_WORKER:
-       return c_worker_thread_run(ctx); 
+//    case THREAD_WORKER:
+//       return c_worker_thread_run(ctx); 
 
     // Kajal: We will think about VTY and APP threads later.   
     case THREAD_VTY:

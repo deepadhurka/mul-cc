@@ -1255,7 +1255,7 @@ of_send_features_request(c_switch_t *sw)
     b = of_prep_msg(sizeof(struct ofp_header), OFPT_FEATURES_REQUEST, 0);
 
     // Kajal: place message in library queue
-    c_thread_tx(&sw->conn, b, true);
+    c_thread_tx(&sw->conn, b, true, sw->datapath_id);
 }
 
 void
@@ -1273,7 +1273,7 @@ of_send_echo_request(c_switch_t *sw)
     /* Send OFPT_ECHO_REQUEST. */
     b = of_prep_msg(sizeof(struct ofp_header), OFPT_ECHO_REQUEST, 0);
 
-    c_thread_tx(&sw->conn, b, false);
+    c_thread_tx(&sw->conn, b, false, sw->datapath_id);
 }
 
 void
@@ -1290,7 +1290,7 @@ of_send_echo_reply(c_switch_t *sw, uint32_t xid)
     /* Send OFPT_ECHO_REPLY */
     b = of_prep_msg(sizeof(struct ofp_header), OFPT_ECHO_REPLY, xid);
 
-    c_thread_tx(&sw->conn, b, false);
+    c_thread_tx(&sw->conn, b, false, sw->datapath_id);
 }
 
 void
@@ -1307,7 +1307,7 @@ of_send_hello(c_switch_t *sw)
     /* Send OFPT_HELLO */
     b = of_prep_msg(sizeof(struct ofp_header), OFPT_HELLO, 0);
 
-    c_thread_tx(&sw->conn, b, false);
+    c_thread_tx(&sw->conn, b, false, sw->datapath_id);
 }
 
 void __fastpath
@@ -1317,7 +1317,7 @@ of_send_pkt_out(c_switch_t *sw, struct of_pkt_out_params *parms)
 
     b = of_prep_pkt_out_msg(parms);
 
-    c_thread_tx(&sw->conn, b, true);
+    c_thread_tx(&sw->conn, b, true, sw->datapath_id);
 } 
 
 void __fastpath
@@ -1335,7 +1335,7 @@ of_send_flow_add(c_switch_t *sw, c_fl_entry_t *ent, uint32_t buffer_id)
                                           ent->action_len, ent->FL_ITIMEO,
                                           ent->FL_HTIMEO, ent->FL_WILDCARDS,
                                           ent->FL_PRIO);
-    c_thread_tx(&sw->conn, b, true);
+    c_thread_tx(&sw->conn, b, true, sw->datapath_id);
 } 
 
 static void UNUSED
@@ -1354,7 +1354,7 @@ of_send_flow_add_nocache(c_switch_t *sw, struct flow *fl, uint32_t buffer_id,
     struct cbuf *b = of_prep_flow_add_msg(fl, buffer_id, actions, 
                                           action_len, itimeo, htimeo,
                                           wildcards, prio);
-    c_thread_tx(&sw->conn, b, true);
+    c_thread_tx(&sw->conn, b, true, sw->datapath_id);
 
     return 0;
 } 
@@ -1377,7 +1377,7 @@ of_send_flow_del(c_switch_t *sw, c_fl_entry_t *ent, uint16_t oport, bool strict)
 {
     struct cbuf *b = of_prep_flow_del_msg(&ent->fl, ent->FL_WILDCARDS, oport,
                                           strict); 
-    c_thread_tx(&sw->conn, b, true);
+    c_thread_tx(&sw->conn, b, true, sw->datapath_id);
 }
 
 static void
@@ -1389,7 +1389,7 @@ of_send_flow_del_strict(c_switch_t *sw, c_fl_entry_t *ent, uint16_t oport)
 
     /* Kludge which I hate */
     ofm->priority = htons(ent->FL_PRIO);
-    c_thread_tx(&sw->conn, b, true);
+    c_thread_tx(&sw->conn, b, true, sw->datapath_id);
 }
 
 static void UNUSED
@@ -1405,7 +1405,7 @@ of_send_flow_del_nocache(c_switch_t *sw, struct flow *fl, uint32_t wildcards,
 {
     struct cbuf *b = of_prep_flow_del_msg(fl, wildcards, oport, strict);
 
-    c_thread_tx(&sw->conn, b, true);
+    c_thread_tx(&sw->conn, b, true, sw->datapath_id);
 
     return 0;
 }
@@ -1425,7 +1425,7 @@ of_send_flow_stat_req(c_switch_t *sw, const struct flow *flow,
 {
     struct cbuf *b = of_prep_flow_stat_msg(flow, wildcards, tbl_id, oport); 
     
-    c_thread_tx(&sw->conn, b, true);
+    c_thread_tx(&sw->conn, b, true, sw->datapath_id);
     return 0;
 }
 
