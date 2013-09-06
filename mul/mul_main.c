@@ -31,7 +31,8 @@ static struct option longopts[] =
 const char *pid_file = C_PID_PATH;
 
 /* handle to controller to pass around */
-ctrl_hdl_t ctrl_hdl;
+// This handle is now global
+// ctrl_hdl_t ctrl_hdl;
 
 /* Help information display. */
 static void
@@ -74,6 +75,7 @@ main(int argc, char **argv)
         case 'd':
             daemon_mode = 1;
             break;
+	// Kajal: Switch threads are a no-op
         case 'S': 
             sthreads = atoi(optarg);
             if (sthreads < 0 || sthreads > 16) {
@@ -108,11 +110,22 @@ main(int argc, char **argv)
     /* initialize controller handler */
     of_ctrl_init(&ctrl_hdl, sthreads, athreads);
 
+    // Add the library init function
+    cc_of_lib_init(CONTROLLER);
+
+    // Initialize the c_main_buf_head in the ctrl_handler
+    //
+    // The 2 variables added are:
+    // 1. struct_cbuf_head c_main_buf_head
+    // 2. struct cbuf *main_cbuf_node ===> Not used for now
+    cbuf_list_head_init(&ctrl_hdl.c_main_buf_head);
+
     clog_default = openclog (progname, CLOG_MUL,
                              LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
     clog_set_level(NULL, CLOG_DEST_SYSLOG, LOG_WARNING);
     clog_set_level(NULL, CLOG_DEST_STDOUT, LOG_DEBUG);
 
+    // The switch threads are no longer required in this MUL
     c_thread_start(&ctrl_hdl, sthreads, athreads);
     while (1) {
         sleep(1);

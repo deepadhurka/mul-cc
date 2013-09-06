@@ -66,7 +66,12 @@ typedef struct ctrl_hdl_ {
 
     c_rw_lock_t              lock;
 
+    // Kajal: This is the switch hashtable
+    // This has the c_switch_t inserted in it
     GHashTable               *sw_hash_tbl; 
+
+    // Kajal: use of ipool is tied with the thread idx
+    // It is just an index for the switches (used by application)
     ipool_hdl_t              *sw_ipool;
     GSList                   *app_list;
 
@@ -77,6 +82,10 @@ typedef struct ctrl_hdl_ {
 
     int                      n_threads;
     int                      n_appthreads;
+
+    //Kajal: Init the main buffer queue
+    struct cbuf_head c_main_buf_head;
+    struct cbuf *main_buf_node;
 
 } ctrl_hdl_t;
 
@@ -339,5 +348,22 @@ do { \
 #define start_prof(X)
 #define get_prof(X, str)
 #endif
+
+// Defines from the Libccof library 
+// We will use these till the APIs are not modified to 
+// use the values
+/* handle to controller to pass around */
+ctrl_hdl_t ctrl_hdl;
+
+/* mapping of channel key (dp-id/aux-id) to rw_sockfd) */
+typedef struct cc_ofchannel_key_ {
+    uint64_t  dp_id;
+    uint8_t   aux_id;
+}cc_ofchannel_key_t;
+
+
+int
+mul_cc_recv_pkt(uint64_t dp_id, uint8_t aux_id, void *of_msg, uint32_t msg_len);
+
 
 #endif

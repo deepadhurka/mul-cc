@@ -427,10 +427,13 @@ c_switch_app_list_de_exp(c_switch_t *sw)
 }
 
 static void
-c_remote_app_event(void *app_arg, void *pkt_arg)
+c_remote_app_event(void *app_arg, void *pkt_arg, 
+                   uint32_t n_dpid, GHashTable *dpid_hlist)
 {
     c_app_info_t *app = app_arg;
-    return c_thread_tx(&app->app_conn, pkt_arg, false);
+    // Kajal: For now this is commented out
+    // Check with Dip
+    // return c_thread_tx(&app->app_conn, pkt_arg, false);
 }
 
 static int 
@@ -454,7 +457,7 @@ c_remote_app_error(void *app_arg, struct cbuf *b,
     data = (void *)(cofp_em + 1);
     memcpy(data, b->data, data_len);
 
-    c_remote_app_event(app_arg, new_b);
+    //c_remote_app_event(app_arg, new_b);
 
     return 0;
 }
@@ -470,7 +473,7 @@ c_remote_app_notify_success(void *app_arg)
     cofp_aac = (void *)(new_b->data);
     cofp_aac->cmd_code = htonl(C_AUX_CMD_SUCCESS);
 
-    c_remote_app_event(app_arg, new_b);
+    //c_remote_app_event(app_arg, new_b);
     return;
 }
 
@@ -1155,7 +1158,7 @@ c_app_send_per_flow_info(void *arg, c_fl_entry_t *ent)
 
     c_rd_unlock(&ent->FL_LOCK);
 
-    c_remote_app_event(iter_arg->data, b);
+    //c_remote_app_event(iter_arg->data, b, 1, &ent->sw->DPID);
 }
 
 
@@ -1230,6 +1233,7 @@ c_app_per_switch_brief_info(void *k, void *v UNUSED, void *arg)
 static void 
 c_app_send_brief_switch_info(void *app_arg, struct cbuf *b)
 {
+    struct c_app_info_t *app = app_arg;	
     struct c_buf_iter_arg iter_arg = { NULL, NULL };
     size_t n_switches = 0;
     struct c_ofp_auxapp_cmd *cofp_aac;
@@ -1256,7 +1260,8 @@ c_app_send_brief_switch_info(void *app_arg, struct cbuf *b)
 
     c_rd_unlock(&ctrl_hdl.lock);
 
-    c_remote_app_event(app_arg, b);
+    //Kajal: Added dpid here
+    //c_remote_app_event(app_arg, b, app->n_dpid, app->dpid_hlist);
 }
 
 static void
@@ -1290,7 +1295,8 @@ c_app_send_detail_switch_info(void *app_arg, struct cbuf *b)
     c_rd_unlock(&sw->lock);
     of_switch_put(sw);
 
-    c_remote_app_event(app_arg, b);
+    // Kajal: Modified
+    //c_remote_app_event(app_arg, b, app->n_dpid, app->dpid_hlist);
 }
 
 static int

@@ -135,6 +135,12 @@ c_thread_write_event(evutil_socket_t fd UNUSED, short events UNUSED, void *arg)
     c_wr_unlock(&conn->conn_lock);
 }
 
+//Kajal: This is where the switch reads the message into a 
+// buffer. 
+// Algo:
+// ====
+//  1. 
+
 static int __fastpath
 c_switch_read_nonblock_loop(int fd, void *arg, c_conn_t *conn,
                             const size_t rcv_buf_sz, 
@@ -144,6 +150,7 @@ c_switch_read_nonblock_loop(int fd, void *arg, c_conn_t *conn,
     struct cbuf         curr_b, *b = NULL;
     int                 loop_cnt = 0;
 
+    
     if (!conn->cbuf) {
         b = alloc_cbuf(rcv_buf_sz);
     } else {
@@ -190,6 +197,7 @@ c_switch_read_nonblock_loop(int fd, void *arg, c_conn_t *conn,
             curr_b.len = ntohs(((struct ofp_header *)(b->data))->length);
             curr_b.tail = b->data + curr_b.len;
 
+	    // Kajal: Call the function of_msg_recv with the current buffer
             proc_msg(arg, &curr_b);
             cbuf_pull(b, curr_b.len);
 
@@ -200,6 +208,8 @@ c_switch_read_nonblock_loop(int fd, void *arg, c_conn_t *conn,
     return rd_sz;
 }
 
+//Kajal: This is callback from the event_new()
+// Parameters to callback from event_new are always same
 void __fastpath
 c_switch_thread_read(evutil_socket_t fd, short events UNUSED, void *arg)
 {
@@ -210,6 +220,7 @@ c_switch_thread_read(evutil_socket_t fd, short events UNUSED, void *arg)
     ret = c_switch_read_nonblock_loop(fd, sw, &sw->conn, OFC_RCV_BUF_SZ,
                                       of_switch_recv_msg);
     if (c_recvd_sock_dead(ret)) {
+	//Kajal: This is how the switch is removed
         perror("c_switch_thread_read");
         sw->conn.dead = 1;
         c_worker_do_switch_del(w_ctx, sw);
@@ -317,6 +328,12 @@ c_worker_do_app_add(void *ctx_arg, void *msg_arg)
     return 0;
 }
 
+//Kajal: This function gets tied in from IPC event where
+// the new connection is distunguished in the worker context
+
+// In MUL modification, the main thread does all the handling, and
+// that is where the new connection gets inserted. So, we don't need
+// to operate on the worker context
 static int
 c_worker_do_switch_add(void *ctx_arg, void *msg_arg)
 {
@@ -339,6 +356,7 @@ c_worker_do_switch_add(void *ctx_arg, void *msg_arg)
 
     c_log_debug("New switch to thread (%u)\n", (unsigned)c_wrk_ctx->thread_idx);
 
+    // This is where the data structures for the buffer get initialized
     new_switch = of_switch_alloc(c_wrk_ctx);
 
     t_data->sw_list = g_slist_append(t_data->sw_list, new_switch);
@@ -378,6 +396,7 @@ c_worker_event_new_conn(void *ctx_arg, void *msg_arg)
     return -1;
 }
 
+// This function does not get used in the new handling
 static int
 c_new_conn_to_thread(struct c_main_ctx *m_ctx, int new_conn_fd,
                      bool sw_conn, bool aux_conn)
@@ -432,6 +451,7 @@ c_accept(evutil_socket_t listener, short event UNUSED, void *arg)
     }
 }
 
+// Kajal: This function does not get used
 void
 c_app_accept(evutil_socket_t listener, short event UNUSED, void *arg)
 {
