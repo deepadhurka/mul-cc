@@ -111,7 +111,7 @@ main(int argc, char **argv)
     of_ctrl_init(&ctrl_hdl, sthreads, athreads);
 
     // Add the library init function
-    cc_of_lib_init(CONTROLLER, SERVER);
+    cc_of_lib_init(CONTROLLER);
 
     // Initialize the c_main_buf_head in the ctrl_handler
     //

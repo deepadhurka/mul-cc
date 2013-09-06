@@ -170,10 +170,10 @@ c_main_thread_final_init(struct c_main_ctx *m_ctx)
     char                        ipc_path_str[64];
     int                         thread_idx;
     ctrl_hdl_t                  *ctrl_hdl = m_ctx->cmn_ctx.c_hdl;
-//    struct thread_alloc_args    t_args = { 0, 0, 
-//                                           THREAD_WORKER, 
-//                                           0, 
-//                                           m_ctx->cmn_ctx.c_hdl };
+    struct thread_alloc_args    t_args = { 0, 0, 
+                                           THREAD_WORKER, 
+                                           0, 
+                                           m_ctx->cmn_ctx.c_hdl };
 
     // Kajal: No event handling
     //m_ctx->cmn_ctx.base = event_base_new();
