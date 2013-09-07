@@ -91,6 +91,8 @@ c_thread_tx(void *conn_arg, struct cbuf *b, bool only_q UNUSED, uint64_t datapat
     // call the library API 
 //    cc_of_send_pkt(sw->datapath_id, 0/*aux-id is not supported here*/, 
 //                   (void *)b->data, b->len/* len of the data */);
+    cc_of_send_pkt(datapath_id, 0/*aux-id is not supported here*/, 
+                   (void *)b->data,(size_t)b->len/* len of the data */);
 /*
     c_wr_lock(&conn->conn_lock);
     if (cbuf_list_queue_len(&conn->tx_q)  > C_TX_BUF_SZ) {

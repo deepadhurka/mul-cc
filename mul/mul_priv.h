@@ -362,8 +362,8 @@ ctrl_hdl_t ctrl_hdl;
 //}cc_ofchannel_key_t;
 
 
-//int
-//mul_cc_recv_pkt(cc_ofchannel_key_t chann_id, void *of_msg, uint32_t msg_len);
+int
+mul_cc_recv_pkt(uint64_t dp_id, uint8_t aux_id, void *of_msg, uint32_t msg_len);
 
 
 #endif

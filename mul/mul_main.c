@@ -112,6 +112,7 @@ main(int argc, char **argv)
 
     // Add the library init function
 //    cc_of_lib_init(CONTROLLER, SERVER);
+    cc_of_lib_init(CONTROLLER);
 
     // Initialize the c_main_buf_head in the ctrl_handler
     //
