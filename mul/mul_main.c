@@ -111,6 +111,7 @@ main(int argc, char **argv)
     of_ctrl_init(&ctrl_hdl, sthreads, athreads);
 
     // Add the library init function
+//    cc_of_lib_init(CONTROLLER, SERVER);
     cc_of_lib_init(CONTROLLER);
 
     // Initialize the c_main_buf_head in the ctrl_handler
@@ -126,7 +127,9 @@ main(int argc, char **argv)
     clog_set_level(NULL, CLOG_DEST_STDOUT, LOG_DEBUG);
 
     // The switch threads are no longer required in this MUL
-    c_thread_start(&ctrl_hdl, sthreads, athreads);
+    // c_thread_start(&ctrl_hdl, sthreads, athreads);
+    c_thread_start(&ctrl_hdl, 0, athreads);
+
     while (1) {
         sleep(1);
     }

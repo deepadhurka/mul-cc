@@ -356,10 +356,10 @@ do { \
 ctrl_hdl_t ctrl_hdl;
 
 /* mapping of channel key (dp-id/aux-id) to rw_sockfd) */
-typedef struct cc_ofchannel_key_ {
-    uint64_t  dp_id;
-    uint8_t   aux_id;
-}cc_ofchannel_key_t;
+//typedef struct cc_ofchannel_key_ {
+//    uint64_t  dp_id;
+//    uint8_t   aux_id;
+//}cc_ofchannel_key_t;
 
 
 int
