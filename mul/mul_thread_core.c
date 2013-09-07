@@ -60,7 +60,8 @@ c_alloc_thread_ctx(struct thread_alloc_args *args)
         {
             struct c_main_ctx *m_ctx;
 
-            assert(args->nthreads > 0 && args->nthreads <= C_MAX_THREADS);
+	    c_log_debug("nthreads:%d", __FUNCTION__, args->nthreads);
+//            assert(args->nthreads > 0 && args->nthreads <= C_MAX_THREADS);
             assert(args->n_appthreads >= 0 && 
                    args->n_appthreads <= C_MAX_APP_THREADS);
             m_ctx = calloc(1, sizeof(struct c_main_ctx));      
@@ -170,19 +171,19 @@ c_main_thread_final_init(struct c_main_ctx *m_ctx)
     char                        ipc_path_str[64];
     int                         thread_idx;
     ctrl_hdl_t                  *ctrl_hdl = m_ctx->cmn_ctx.c_hdl;
-//    struct thread_alloc_args    t_args = { 0, 0, 
-//                                           THREAD_WORKER, 
-//                                           0, 
-//                                           m_ctx->cmn_ctx.c_hdl };
+    struct thread_alloc_args    t_args = { 0, 0, 
+                                           THREAD_WORKER, 
+                                           0, 
+                                           m_ctx->cmn_ctx.c_hdl };
 
     // Kajal: No event handling
-    //m_ctx->cmn_ctx.base = event_base_new();
-    //assert(m_ctx->cmn_ctx.base); 
+    m_ctx->cmn_ctx.base = event_base_new();
+    assert(m_ctx->cmn_ctx.base); 
 
+/*
 //    m_ctx->worker_pool = calloc(m_ctx->nthreads, sizeof(void *));
 //    assert(m_ctx->worker_pool);
 
-/*
     // Worker thread creation 
     for (thread_idx = 0; thread_idx < m_ctx->nthreads; thread_idx++) {
 	
@@ -370,23 +371,26 @@ c_thread_event_loop_lib_support(struct c_main_ctx *main_ctx)
 
     // check cbuf
     // get first message from buffer and begin the processing.
-    if(cbuf_list_queue_len(&ctrl_hdl.c_main_buf_head))
-    {
-	// Get the first message
-	b = cbuf_list_dequeue(&ctrl_hdl.c_main_buf_head);
+    while(1)
+    {	
+        if(cbuf_list_queue_len(&ctrl_hdl.c_main_buf_head))
+        {
+	    // Get the first message
+	    b = cbuf_list_dequeue(&ctrl_hdl.c_main_buf_head);
+	    if (!of_hdr_valid(b->data)) 
+            {
+	        c_log_err("%s: Corrupted header", FN);
+	        return 0; /* Close the socket */
+            }
+
+            // No need to allocate the worker thread
+            // Pass the main_ctx now. Previously, this was:
+            // sw = of_switch_alloc(c_wrk_ctx);
+            sw = of_switch_alloc(main_ctx);
+            of_switch_recv_msg(sw, b);
+        }
     }
 
-    if (!of_hdr_valid(b->data)) 
-    {
-	c_log_err("%s: Corrupted header", FN);
-	return 0; /* Close the socket */
-    }
-
-    // No need to allocate the worker thread
-    // Pass the main_ctx now. Previously, this was:
-    // sw = of_switch_alloc(c_wrk_ctx);
-    sw = of_switch_alloc(main_ctx);
-    of_switch_recv_msg(sw, b);
 
     return 0;
 }
@@ -547,6 +551,7 @@ c_thread_start(void *hdl, int nthreads, int n_appthreads)
     // In this MUL model, we will be operating on the main_ctx and will add the switch
     // information in ctrl_hdl:
     // GHashTable *sw_hash_tbl;
+    args.nthreads = 0;
     struct c_main_ctx *main_ctx = c_alloc_thread_ctx(&args);
     ctrl_hdl->main_ctx = (void *)main_ctx;
 
