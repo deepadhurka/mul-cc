@@ -243,6 +243,7 @@ struct c_switch
     ctrl_hdl_t              *c_hdl;         /* Controller handle */ 
 #define DPID datapath_id
     unsigned long long int  datapath_id;	/* DP id */
+	bool                    is_dummy_datapath_id;/*To know if the DP ID is set */
     void                    *app_flow_tbl;   
     c_flow_tbl_t            exm_flow_tbl;
 #define C_RULE_FLOW_TBL_DFL   0
@@ -366,5 +367,9 @@ ctrl_hdl_t ctrl_hdl;
 int
 mul_cc_recv_pkt(uint64_t dp_id, uint8_t aux_id, void *of_msg, size_t msg_len);
 
+int
+mul_cc_of_accept(uint64_t dummy_dpid, uint8_t dummy_auxid,
+                uint32_t controller_ip, uint32_t switch_ip,
+                uint16_t controller_L4_port);
 
 #endif

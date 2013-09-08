@@ -100,6 +100,9 @@ struct c_main_ctx
     struct event        *c_accept_event;
     struct event        *c_app_accept_event;
     struct event        *c_app_aux_accept_event;
+
+	// Manages list of switches
+	c_per_thread_dat_t  thread_data;
 };
 
 

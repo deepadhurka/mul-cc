@@ -21,6 +21,7 @@
 #define __C_BUF_H__
 
 #include "atomic.h"
+#include "stdint.h"
 
 struct cbuf
 {
@@ -31,6 +32,8 @@ struct cbuf
     struct cbuf   *next;
     unsigned long cloned:8;
     unsigned long res:24;
+
+	uint64_t dpid;
 };
 
 struct cbuf_head
