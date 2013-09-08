@@ -313,7 +313,7 @@ c_main_thread_final_init(struct c_main_ctx *m_ctx)
 // be accessed by c_main_buf.
 
 int
-mul_cc_recv_pkt(uint64_t dp_id, uint8_t aux_id, void *of_msg, uint32_t msg_len)
+mul_cc_recv_pkt(uint64_t dp_id, uint8_t aux_id, void *of_msg, size_t msg_len)
 {
     
     struct cbuf *b = NULL;
