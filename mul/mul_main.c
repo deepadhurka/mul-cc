@@ -141,6 +141,9 @@ main(int argc, char **argv)
         sleep(1);
     }
 
+    cc_of_lib_free();
+    cc_of_dev_free(ip_addr, 0, C_LISTEN_PORT);    
+
     pthread_exit(NULL);
 
     /* Not reached. */
