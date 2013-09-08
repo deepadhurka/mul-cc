@@ -47,6 +47,20 @@ usage(char *progname, int status)
     exit(status);
 }
 
+void 
+mul_terminate()
+{
+	printf("signal caught\n");
+    printf("Calling OFLIB API to free library\n");
+    //cc_of_dev_free(ip_addr, 0, C_LISTEN_PORT);    
+    //cc_of_lib_free();
+
+    pthread_exit(NULL);
+
+    /* Not reached. */
+    return (0);
+}
+
 int
 main(int argc, char **argv)
 {
@@ -54,6 +68,7 @@ main(int argc, char **argv)
     int     daemon_mode = 0;
     char    *progname;
     int     sthreads = 4, athreads = 2;
+    uint32_t ip_addr = 0;
 
     /* Set umask before anything for security */
     umask (0027);
@@ -106,19 +121,19 @@ main(int argc, char **argv)
     c_pid_output(C_PID_PATH);
 
     signal(SIGPIPE, SIG_IGN);
+	/* Handle process termination by SIGINT */
+	signal(SIGINT, mul_terminate);
 
     /* initialize controller handler */
     of_ctrl_init(&ctrl_hdl, sthreads, athreads);
 
     // Add the library init function
-//    cc_of_lib_init(CONTROLLER, SERVER);
     cc_of_debug_toggle(TRUE);
     cc_of_lib_init(CONTROLLER);
     cc_of_log_toggle(TRUE);
 
     // Device register
     //struct in_addr ip_addr;
-    uint32_t ip_addr = 0;
     ip_addr = inet_aton(C_CONTROLLER_IP, &ip_addr);
     cc_of_dev_register(ip_addr, 0, C_LISTEN_PORT,
                        CC_OFVER_1_0, mul_cc_recv_pkt);

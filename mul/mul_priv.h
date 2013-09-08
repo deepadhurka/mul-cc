@@ -372,4 +372,7 @@ mul_cc_of_accept(uint64_t dummy_dpid, uint8_t dummy_auxid,
                 uint32_t controller_ip, uint32_t switch_ip,
                 uint16_t controller_L4_port);
 
+void
+mul_terminate();
+
 #endif

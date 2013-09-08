@@ -432,6 +432,8 @@ c_thread_event_loop_lib_support(struct c_main_ctx *main_ctx)
 			// Change handling somewhat	    	
             // of_switch_recv_msg(sw, b);
         }
+
+		sleep(1);
     }
 
 
