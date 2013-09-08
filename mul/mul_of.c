@@ -2136,6 +2136,10 @@ of_ctrl_init(ctrl_hdl_t *c_hdl, size_t nthreads, size_t n_appthreads)
 
     c_hdl->n_threads = nthreads;
     c_hdl->n_appthreads = n_appthreads;
+//    c_hdl->c_port = 0;
+//    c_hdl->c_peer = c_peer;
+//    c_hdl->ha_state = master ? C_HA_STATE_MASTER : C_HA_STATE_NONE;
+//    c_hdl->ha_sysid = random_uint32();
 
     return 0;
 }

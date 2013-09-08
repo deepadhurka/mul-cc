@@ -28,6 +28,7 @@
 #define C_IPC_PATH                  "/var/run/cipc_x"
 #define C_IPC_APP_PATH              "/var/run/cipc_app_x"
 #define C_PER_WORKER_TIMEO          1
+#define C_CONTROLLER_IP             "127.0.0.1"
 
 #define C_VTY_PORT                  7000
 #define C_PID_PATH                  "/var/run/mul.pid"
@@ -363,7 +364,7 @@ ctrl_hdl_t ctrl_hdl;
 
 
 int
-mul_cc_recv_pkt(uint64_t dp_id, uint8_t aux_id, void *of_msg, uint32_t msg_len);
+mul_cc_recv_pkt(uint64_t dp_id, uint8_t aux_id, void *of_msg, size_t msg_len);
 
 
 #endif

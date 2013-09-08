@@ -114,6 +114,13 @@ main(int argc, char **argv)
 //    cc_of_lib_init(CONTROLLER, SERVER);
     cc_of_lib_init(CONTROLLER);
 
+    // Device register
+    //struct in_addr ip_addr;
+    uint32_t ip_addr = 0;
+    ip_addr = inet_aton(C_CONTROLLER_IP, &ip_addr);
+    cc_of_dev_register(ip_addr, 0, C_LISTEN_PORT,
+                       CC_OFVER_1_0, mul_cc_recv_pkt);
+
     // Initialize the c_main_buf_head in the ctrl_handler
     //
     // The 2 variables added are:
@@ -133,6 +140,9 @@ main(int argc, char **argv)
     while (1) {
         sleep(1);
     }
+
+    cc_of_lib_free();
+    cc_of_dev_free(ip_addr, 0, C_LISTEN_PORT);    
 
     pthread_exit(NULL);
 
