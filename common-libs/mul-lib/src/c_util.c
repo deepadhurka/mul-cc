@@ -110,7 +110,8 @@ c_pid_output(const char *path)
 
         if (fcntl(fd, F_SETLK, &lock) < 0) {
             printf("Duplicate instance running\n");
-            exit(1);
+	    // Kajal: Lets not exit to allow duplicate instances
+            // exit(1);
         }
 
         sprintf (buf, "%d\n", (int) pid);
