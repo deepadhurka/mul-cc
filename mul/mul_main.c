@@ -112,7 +112,9 @@ main(int argc, char **argv)
 
     // Add the library init function
 //    cc_of_lib_init(CONTROLLER, SERVER);
+    cc_of_debug_toggle(TRUE);
     cc_of_lib_init(CONTROLLER);
+    cc_of_log_toggle(TRUE);
 
     // Device register
     //struct in_addr ip_addr;
@@ -140,9 +142,9 @@ main(int argc, char **argv)
     while (1) {
         sleep(1);
     }
-
-    cc_of_lib_free();
+    printf("Calling OFLIB API to free library\n");
     cc_of_dev_free(ip_addr, 0, C_LISTEN_PORT);    
+    cc_of_lib_free();
 
     pthread_exit(NULL);
 
