@@ -1519,6 +1519,8 @@ of_recv_port_status(c_switch_t *sw, struct cbuf *b)
 static void
 of_recv_features_reply(c_switch_t *sw, struct cbuf *b)
 {
+	bool is_dummy_dpid = FALSE;
+	unsigned long long int  dummy_datapath_id; 
     struct ofp_switch_features  *osf = (void *)(b->data);
     size_t                       n_ports, i;
 
@@ -1526,6 +1528,9 @@ of_recv_features_reply(c_switch_t *sw, struct cbuf *b)
                 - offsetof(struct ofp_switch_features, ports))
             / sizeof *osf->ports);
 
+	dummy_datapath_id = sw->datapath_id;
+	is_dummy_dpid = sw->is_dummy_datapath_id;
+	
     // Kajal: Based on the packet the information is present in the buffer
     sw->datapath_id = ntohll(osf->datapath_id);
     sw->version     = osf->header.version;
@@ -1533,6 +1538,11 @@ of_recv_features_reply(c_switch_t *sw, struct cbuf *b)
     sw->n_tables    = osf->n_tables;
     sw->actions     = ntohl(osf->actions);
     sw->capabilities = ntohl(osf->capabilities);
+
+	// Kajal: Now we have the real datapath_id
+	// Call the library to give the datapath_id to it
+    cc_of_set_real_dpid_auxid(dummy_datapath_id, 0, sw->datapath_id, 0);	
+	sw->is_dummy_datapath_id = FALSE;
 
     for (i = 0; i < n_ports; i++) {
         of_process_phy_port(sw, &osf->ports[i], OFPPR_ADD, NULL);
@@ -2103,11 +2113,18 @@ of_switch_recv_msg(void *sw_arg, struct cbuf *b)
     oh = (void *)b->data;
 
     //c_log_debug("OF MSG RX TYPE (%d)", oh->type);
+	
+	// As datapath_id will have the dummy sockfd, 
+	// we cannot use this condition directly
+    //if (unlikely(sw->datapath_id == 0
+    //    && oh->type != OFPT_ECHO_REQUEST
+    //    && oh->type != OFPT_FEATURES_REPLY)) {
 
-    if (unlikely(sw->datapath_id == 0
-        && oh->type != OFPT_ECHO_REQUEST
-        && oh->type != OFPT_FEATURES_REPLY)) {
-	// Kajal: New connection
+	if((sw->is_dummy_datapath_id == TRUE) && 
+        (oh->type != OFPT_ECHO_REQUEST) &&
+        (oh->type != OFPT_FEATURES_REPLY))
+	{
+		// Kajal: New connection
         of_send_features_request(sw);
         return;
     }

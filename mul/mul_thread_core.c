@@ -292,6 +292,39 @@ c_main_thread_final_init(struct c_main_ctx *m_ctx)
     return 0;
 }
 
+// mul_cc_of_accept
+// This is a callback which is called when the library does an accept.
+// It will pass the controller a dummy dp-id (which is actually the sock-fd)
+// This dp-id will be updated when the negitiation is done.
+// 
+// This is where the hello will be triggered
+int
+mul_cc_of_accept(uint64_t dummy_dpid, uint8_t dummy_auxid, 
+                uint32_t controller_ip, uint32_t switch_ip,
+                uint16_t controller_L4_port)
+{
+    c_switch_t *new_switch = NULL;
+	struct c_main_ctx *c_main_ctx = ctrl_hdl.main_ctx;
+	c_per_thread_dat_t *t_data = &c_main_ctx->thread_data;
+    // A new connection needs to be estabilished
+    // c_new_conn_to_thread(&ctrl_hdl->m_ctx, 0, true, false); 	
+
+	// Pass the main handler
+	new_switch = of_switch_alloc(c_main_ctx);	
+
+	// Add the switch info to the main thread
+	// Follow functioning in : c_worker_do_switch_add 
+    new_switch->datapath_id = dummy_dpid;			
+    new_switch->is_dummy_datapath_id = TRUE;			
+	new_switch->c_hdl = &ctrl_hdl;
+    t_data->sw_list = g_slist_append(t_data->sw_list, new_switch);	
+
+	// Send hello
+	of_send_hello(new_switch);
+
+	return 0; 
+}
+
 // Implementation of CC ONF function
 // For now the parameters are based on MUL defines to compile
 // These need to be changed when the library is integrated.
@@ -331,13 +364,14 @@ mul_cc_recv_pkt(uint64_t dp_id, uint8_t aux_id, void *of_msg, size_t msg_len)
 	{
 	    // Kajal: What else to log for a new connection
 	    // chann_id.aux_id -- is of type uint64_t 
-	    // c_log_err("Buffer node could not be allocated dp-id:0x%x aux-id:0x%x\n",
-	    //          chann_id.dp_id, chann_id.aux_id);
+	    c_log_err("Buffer node could not be allocated dp-id:0x%x aux-id:0x%x\n",
+	              dp_id, aux_id);
 	    //return 0;
 	}
 
 	// if_msg should be freed by library assuming that 
 	// buffer should copy it.
+	b->dpid = dp_id;
 	memcpy(b->data, of_msg, msg_len);
 	// Insert buffer in queue	
 	cbuf_list_queue_tail(&ctrl_hdl.c_main_buf_head, b);
@@ -361,6 +395,7 @@ c_thread_event_loop_lib_support(struct c_main_ctx *main_ctx)
 {
     c_switch_t *sw = NULL;
     struct cbuf *b = NULL;
+	c_per_thread_dat_t *t_data = &main_ctx->thread_data;
     
     c_log_debug("%s: tid(%u)", __FUNCTION__, (unsigned int)pthread_self());
     // instead of looping on the socket fd, the main thread
@@ -386,8 +421,16 @@ c_thread_event_loop_lib_support(struct c_main_ctx *main_ctx)
             // No need to allocate the worker thread
             // Pass the main_ctx now. Previously, this was:
             // sw = of_switch_alloc(c_wrk_ctx);
-            sw = of_switch_alloc(main_ctx);
-            of_switch_recv_msg(sw, b);
+
+            // sw = of_switch_alloc(main_ctx);
+			// When the packet is recieved in the queue, it
+			// will have a sw struct already allocated
+			
+			// How to get the sw struct ?? 
+			// Get it from the main thread hashtable
+			
+			// Change handling somewhat	    	
+            // of_switch_recv_msg(sw, b);
         }
     }
 
