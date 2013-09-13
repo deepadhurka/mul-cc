@@ -91,6 +91,9 @@ c_thread_tx(void *conn_arg, struct cbuf *b, bool only_q UNUSED, uint64_t datapat
     // call the library API 
 //    cc_of_send_pkt(sw->datapath_id, 0/*aux-id is not supported here*/, 
 //                   (void *)b->data, b->len/* len of the data */);
+	c_log_debug("(%s) Sending packet to library %llu\n", 
+				__FUNCTION__, datapath_id);
+
     cc_of_send_pkt(datapath_id, 0/*aux-id is not supported here*/, 
                    (void *)b->data,(size_t)b->len/* len of the data */);
 /*
