@@ -18,9 +18,11 @@
  */
 #include "mul.h"
 
-bool callbk_executed;
+bool callbk_executed = FALSE;
 void *c_thread_main(void *arg);
 int  c_vty_thread_run(void *arg);
+static int
+c_thread_event_loop_lib_support(struct c_main_ctx *main_ctx);
 
 int
 c_set_thread_dfl_affinity(void)
@@ -186,62 +188,60 @@ c_main_thread_final_init(struct c_main_ctx *m_ctx)
 	callbk_executed = FALSE;
 
     /* No event handling for worker threads as they are no-op
-     * event handling is required for APP / VTY threads
-     * Therefore, setting up event base is required */
+	* event handling is required for APP / VTY threads
+	* Therefore, setting up event base is required */
     m_ctx->cmn_ctx.base = event_base_new();
-    assert(m_ctx->cmn_ctx.base); 
+    assert(m_ctx->cmn_ctx.base);
 
-/*
-    m_ctx->worker_pool = calloc(m_ctx->nthreads, sizeof(void *));
-    assert(m_ctx->worker_pool);
+	/*
+	m_ctx->worker_pool = calloc(m_ctx->nthreads, sizeof(void *));
+	assert(m_ctx->worker_pool);
 
-    // Worker thread creation 
-    for (thread_idx = 0; thread_idx < m_ctx->nthreads; thread_idx++) {
-	
-	    // Indexing the worker thread in the main_ctx
-        w_ctx_slot = c_tid_to_ctx_slot(m_ctx, thread_idx);
+	// Worker thread creation
+	for (thread_idx = 0; thread_idx < m_ctx->nthreads; thread_idx++) {
+	// Indexing the worker thread in the main_ctx
+	w_ctx_slot = c_tid_to_ctx_slot(m_ctx, thread_idx);
 
-        t_args.thread_idx = thread_idx;
-        w_ctx = c_alloc_thread_ctx(&t_args);
-        assert(w_ctx);
+	t_args.thread_idx = thread_idx;
+	w_ctx = c_alloc_thread_ctx(&t_args);
+	assert(w_ctx);
 
-        *w_ctx_slot = w_ctx;
-        
-	    // Create Named pipes for IPC communication with main thread
-        memset(ipc_path_str, 0, sizeof(ipc_path_str));
-        snprintf(ipc_path_str, 63, "%s%d", C_IPC_PATH, thread_idx); 
-        if (mkfifo(ipc_path_str, S_IRUSR | S_IWUSR | S_IWGRP) == -1
-            && errno != EEXIST) {
-            perror("");
-            assert(0);
-        }
+	*w_ctx_slot = w_ctx;
+	// Create Named pipes for IPC communication with main thread
+	memset(ipc_path_str, 0, sizeof(ipc_path_str));
+	snprintf(ipc_path_str, 63, "%s%d", C_IPC_PATH, thread_idx);
+	if (mkfifo(ipc_path_str, S_IRUSR | S_IWUSR | S_IWGRP) == -1
+	&& errno != EEXIST) {
+		perror("");
+		assert(0);
+	}
 
-	    // Worker context is created for each thread, but, we will not
-	    // be using it.
-        pthread_create(&w_ctx->cmn_ctx.thread, NULL, c_thread_main, w_ctx);
+	// Worker context is created for each thread, but, we will not
+	// be using it.
+	pthread_create(&w_ctx->cmn_ctx.thread, NULL, c_thread_main, w_ctx);
 
-	    // Save the fd for the named pipes in the worker context
-	    // Main ctx has the w_ctx saved. So main thread knows which is the 
-	    // fd on which the IPC communication needs to begin 
-        w_ctx->main_wrk_conn.conn_type = C_CONN_TYPE_FILE;
-        w_ctx->main_wrk_conn.fd = open(ipc_path_str, O_WRONLY);
-        assert(w_ctx->main_wrk_conn.fd > 0);
+	// Save the fd for the named pipes in the worker context
+	// Main ctx has the w_ctx saved. So main thread knows which is the
+	// fd on which the IPC communication needs to begin
+	w_ctx->main_wrk_conn.conn_type = C_CONN_TYPE_FILE;
+	w_ctx->main_wrk_conn.fd = open(ipc_path_str, O_WRONLY);
+	assert(w_ctx->main_wrk_conn.fd > 0);
 
-	    // Worker thread context is saved in the main_ctx and the controller handle
-        ctrl_hdl->worker_ctx_list[thread_idx] = (void *)w_ctx;
-    }
+		// Worker thread context is saved in the main_ctx and the controller handle
+		ctrl_hdl->worker_ctx_list[thread_idx] = (void *)w_ctx;
+	}
 
-    // Switch listener 
-    // Kajal: No need to create a socket to listen on. 
-    // Library will use the callback defined in MUL to do processing.
-    c_listener = c_server_socket_create(INADDR_ANY, C_LISTEN_PORT);
+	// Switch listener
+	// Kajal: No need to create a socket to listen on.
+	// Library will use the callback defined in MUL to do processing.
+	c_listener = c_server_socket_create(INADDR_ANY, C_LISTEN_PORT);
 
-    assert(c_listener > 0);
-    m_ctx->c_accept_event = event_new(m_ctx->cmn_ctx.base, -1, 
-                                      EV_READ|EV_PERSIST,
-                                      cc_of_new_conn_event_handler, (void*)m_ctx);
-    event_add(m_ctx->c_accept_event, NULL);
-*/
+	assert(c_listener > 0);
+	m_ctx->c_accept_event = event_new(m_ctx->cmn_ctx.base, -1,
+	EV_READ|EV_PERSIST,
+	cc_of_new_conn_event_handler, (void*)m_ctx);
+	event_add(m_ctx->c_accept_event, NULL);
+	*/
 	c_log_debug("(%s) testing!!!\n", __FUNCTION__);
 
     m_ctx->app_pool = calloc(m_ctx->n_appthreads, sizeof(void *));
@@ -259,7 +259,7 @@ c_main_thread_final_init(struct c_main_ctx *m_ctx)
         *app_ctx_slot = app_ctx;
 
         memset(ipc_path_str, 0, sizeof(ipc_path_str));
-        snprintf(ipc_path_str, 63, "%s%d", C_IPC_APP_PATH, thread_idx); 
+        snprintf(ipc_path_str, 63, "%s%d", C_IPC_APP_PATH, thread_idx);
         if (mkfifo(ipc_path_str, S_IRUSR | S_IWUSR | S_IWGRP) == -1
             && errno != EEXIST) {
             perror("");
@@ -273,7 +273,7 @@ c_main_thread_final_init(struct c_main_ctx *m_ctx)
         assert(app_ctx->main_wrk_conn.fd > 0);
     }
 
-    /* VTY thread creation */    
+    /* VTY thread creation */
     t_args.thread_type = THREAD_VTY;
     vty_ctx = c_alloc_thread_ctx(&t_args);
     assert(vty_ctx);
@@ -283,14 +283,14 @@ c_main_thread_final_init(struct c_main_ctx *m_ctx)
     /* Application listener */
     c_listener = c_server_socket_create(INADDR_ANY, C_APP_LISTEN_PORT);
     assert(c_listener);
-    m_ctx->c_app_accept_event = event_new(m_ctx->cmn_ctx.base, c_listener, 
+    m_ctx->c_app_accept_event = event_new(m_ctx->cmn_ctx.base, c_listener,
                                           EV_READ|EV_PERSIST,
                                           c_app_accept, (void*)m_ctx);
     event_add(m_ctx->c_app_accept_event, NULL);
 
     c_listener = c_server_socket_create(INADDR_ANY, C_APP_AUX_LISTEN_PORT);
     assert(c_listener);
-    m_ctx->c_app_aux_accept_event= event_new(m_ctx->cmn_ctx.base, c_listener, 
+    m_ctx->c_app_aux_accept_event= event_new(m_ctx->cmn_ctx.base, c_listener,
                                           EV_READ|EV_PERSIST,
                                           c_aux_app_accept, (void*)m_ctx);
     event_add(m_ctx->c_app_aux_accept_event, NULL);
@@ -300,27 +300,26 @@ c_main_thread_final_init(struct c_main_ctx *m_ctx)
     c_set_thread_dfl_affinity();
 
     c_log_debug("%s: running tid(%u)", __FUNCTION__, (unsigned int)pthread_self());
-    return 0;
+	return 0;
+
 }
 
 // mul_cc_of_accept
 // This is a callback which is called when the library does an accept.
 // It will pass the controller a dummy dp-id (which is actually the sock-fd)
 // This dp-id will be updated when the negitiation is done.
-// 
+//
 // This is where the hello will be triggered
 int
 mul_cc_of_accept(uint64_t dummy_dpid, uint8_t dummy_auxid)
 {
     c_switch_t *new_switch = NULL;
 	struct c_main_ctx *c_main_ctx = ctrl_hdl.main_ctx;
-	c_per_thread_dat_t *t_data = &c_main_ctx->thread_data;
 
+	/*Set global variable*/
 	callbk_executed = TRUE;
 	
-	assert(1);
-
-	c_log_debug("(%s) Accept received dpid:%llu auxid:0x%x \n", 
+	c_log_debug("(%s) Accept received dpid:%lu auxid:0x%x \n", 
 				__FUNCTION__, dummy_dpid, dummy_auxid);
 
     // A new connection needs to be estabilished
@@ -329,6 +328,7 @@ mul_cc_of_accept(uint64_t dummy_dpid, uint8_t dummy_auxid)
 	// Pass the main handler
 	// Here the switch state is SW_INIT 
 	// Later on it changes state to REGISTERED
+/*
 	new_switch = of_switch_alloc(c_main_ctx);	
 	if(new_switch == NULL)
 	{
@@ -336,7 +336,8 @@ mul_cc_of_accept(uint64_t dummy_dpid, uint8_t dummy_auxid)
 		callbk_executed = FALSE;
 		return CC_OF_EMISC;
 	}
-	c_log_debug("New switch context created\n");
+
+	c_log_debug("(%s) New switch context created\n", __FUNCTION__);
 
 	// Add the switch info to the main thread
 	// Follow functioning in : c_worker_do_switch_add 
@@ -354,8 +355,10 @@ mul_cc_of_accept(uint64_t dummy_dpid, uint8_t dummy_auxid)
 	// Send hello
 	// This should send the messsage to the library
 	of_send_hello(new_switch);
-	callbk_executed = FALSE;
 
+	// back to while
+	callbk_executed = FALSE;
+*/
 	return 0; 
 }
 
@@ -400,11 +403,15 @@ mul_cc_recv_pkt(uint64_t dp_id, uint8_t aux_id, void *of_msg, size_t msg_len)
 {
     
     struct cbuf *b = NULL;
+
+	c_log_debug("(%s) Recv received dpid:%lu auxid:%d \n", 
+				__FUNCTION__, dp_id, aux_id);
     
+	callbk_executed = TRUE;
     if(cbuf_list_queue_len(&ctrl_hdl.c_main_buf_head) > 1024) 
     {
-	// Throw an error
-	c_log_err("Main thread buffer queue is full\n");
+		// Throw an error
+		c_log_err("(%s) Main thread buffer queue is full\n");
     }
     else
     {
@@ -412,9 +419,7 @@ mul_cc_recv_pkt(uint64_t dp_id, uint8_t aux_id, void *of_msg, size_t msg_len)
 		b = alloc_cbuf(msg_len);
 		if(b == NULL)
 		{
-			// Kajal: What else to log for a new connection
-			// chann_id.aux_id -- is of type uint64_t 
-			c_log_err("Buffer node could not be allocated dp-id:0x%x aux-id:0x%x\n",
+			c_log_err("(%s) Buffer node not allocated dp-id:0x%x aux-id:0x%x\n",
 					  dp_id, aux_id);
 			//return 0;
 		}
@@ -427,7 +432,14 @@ mul_cc_recv_pkt(uint64_t dp_id, uint8_t aux_id, void *of_msg, size_t msg_len)
 		memcpy(b->data, of_msg, msg_len);
 		// Insert buffer in queue	
 		cbuf_list_queue_tail(&ctrl_hdl.c_main_buf_head, b);
+
+		size_t len = 0;
+		len = cbuf_list_queue_len(&ctrl_hdl.c_main_buf_head);
+		c_log_debug("(%s) queue_len:%d\n", __FUNCTION__, len);
     }
+
+	// back to while
+	callbk_executed = FALSE;
 
     return 0;
 }
@@ -445,11 +457,12 @@ mul_cc_recv_pkt(uint64_t dp_id, uint8_t aux_id, void *of_msg, size_t msg_len)
 static int
 c_thread_event_loop_lib_support(struct c_main_ctx *main_ctx)
 {
+	uint32_t len = 0;
     c_switch_t *sw = NULL;
     struct cbuf *b = NULL;
 	c_per_thread_dat_t *t_data = &main_ctx->thread_data;
     
-    c_log_debug("%s: tid(%u) callbk_executed:%d\n", 
+    c_log_debug("(%s) tid(%u) callbk_executed:%d\n", 
 	            __FUNCTION__, (unsigned int)pthread_self(), callbk_executed);
     // instead of looping on the socket fd, the main thread
     // will be looping on the cbuf.
@@ -459,18 +472,24 @@ c_thread_event_loop_lib_support(struct c_main_ctx *main_ctx)
 
     // check cbuf
     // get first message from buffer and begin the processing.
-    while(!callbk_executed)
+    while(1)
     {	
-        if(cbuf_list_queue_len(&ctrl_hdl.c_main_buf_head))
+		len = cbuf_list_queue_len(&ctrl_hdl.c_main_buf_head);
+		//c_log_debug("(%s) In while loop len:%d\n", __FUNCTION__, len);	
+
+        if(len != 0)
         {
+			len = cbuf_list_queue_len(&ctrl_hdl.c_main_buf_head);
+		    //c_log_debug("(%s) A message in the queue len:%d\n", __FUNCTION__, len);	
+
 			// Get the first message
 			b = cbuf_list_dequeue(&ctrl_hdl.c_main_buf_head);
 			if (!of_hdr_valid(b->data)) 
 			{
-				c_log_err("%s: Corrupted header 0x%x", 
-							__FUNCTION__, b->dpid);
+				c_log_err("%s: Corrupted header 0x%x len:%d", 
+							__FUNCTION__, b->dpid, len);
 				continue;
-				//return 0; /* Close the socket */
+				//return 0; 
 			}
 
             // sw = of_switch_alloc(main_ctx);
@@ -478,15 +497,24 @@ c_thread_event_loop_lib_support(struct c_main_ctx *main_ctx)
 			// When the packet is recieved in the queue, it
 			// will have a sw struct already allocated
 			// Get it from the main thread hashtable
+			c_log_debug("(%s) Get the switch context dp_id:%lu len:%d\n", __FUNCTION__, b->dpid, len);
 			sw = of_switch_get(&ctrl_hdl, b->dpid);
-			
-		    // Call of_switch_recv	
-            of_switch_recv_msg(sw, b);
+			if(sw != NULL)
+			{
+				// Call of_switch_recv	
+				of_switch_recv_msg(sw, b);
+			}
+			else
+			{
+				// NULL context returned
+				c_log_debug("(%s) could not get switch context for dp_id:%lu\n", 
+                             __FUNCTION__, b->dpid);
+			}	
         }
 
-		sleep(1000);
+		// Let callback execute
+		usleep(1000);
     }
-
 
     return 0;
 }
