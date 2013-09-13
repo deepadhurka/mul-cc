@@ -18,6 +18,7 @@
  */
 #include "mul.h"
 
+bool callbk_executed;
 void *c_thread_main(void *arg);
 int  c_vty_thread_run(void *arg);
 
@@ -60,7 +61,7 @@ c_alloc_thread_ctx(struct thread_alloc_args *args)
         {
             struct c_main_ctx *m_ctx;
 
-	    c_log_debug("nthreads:%d", __FUNCTION__, args->nthreads);
+	        c_log_debug("nthreads:%d", __FUNCTION__, args->nthreads);
 //            assert(args->nthreads > 0 && args->nthreads <= C_MAX_THREADS);
             assert(args->n_appthreads >= 0 && 
                    args->n_appthreads <= C_MAX_APP_THREADS);
@@ -68,26 +69,29 @@ c_alloc_thread_ctx(struct thread_alloc_args *args)
             assert(m_ctx);
 
             ctx = m_ctx;
-            m_ctx->nthreads = args->nthreads; 
+            m_ctx->nthreads = 0; 
             m_ctx->n_appthreads = args->n_appthreads; 
             m_ctx->cmn_ctx.thread_type = args->thread_type; 
-	    // In the main thread, the cmn_ctx has the pointer to 
-	    // main_ctrl_handler
+	        // In the main thread, the cmn_ctx has the pointer to 
+	        // main_ctrl_handler
             m_ctx->cmn_ctx.c_hdl = args->c_hdl;
             break;
         }
     case THREAD_WORKER:
         {
+			/* This code should not get executed */
+	        c_log_debug("Worker thread creation -- not to be executed !!!", 
+                        __FUNCTION__);
             struct c_worker_ctx *w_ctx;
             w_ctx = calloc(1, sizeof(struct c_worker_ctx));      
             assert(w_ctx);
 
             ctx = w_ctx;
             w_ctx->cmn_ctx.thread_type = args->thread_type;    
-	    // The handler for the main controller thread is stored
-	    // in the worker context 
+	        // The handler for the main controller thread is stored
+	        // in the worker context 
             w_ctx->cmn_ctx.c_hdl = args->c_hdl;
-	    // Each thread has its thread-idx for lookup
+	        // Each thread has its thread-idx for lookup
             w_ctx->thread_idx = args->thread_idx;
             break;
         }
@@ -123,7 +127,8 @@ c_alloc_thread_ctx(struct thread_alloc_args *args)
 }
 
 /*
-// Kajal: C worker thread is initialized with the w_ctx
+ * C worker thread is initialized with the w_ctx
+ * This logic is no longer needed.
 static int
 c_worker_thread_final_init(struct c_worker_ctx *w_ctx)
 {
@@ -160,7 +165,9 @@ c_worker_thread_final_init(struct c_worker_ctx *w_ctx)
 }
 */
 
-// This is where the switch threads get created. 
+/**
+ * This is where all the WORKER / APP / VTY threads get created
+ */
 static int
 c_main_thread_final_init(struct c_main_ctx *m_ctx)
 {
@@ -175,19 +182,23 @@ c_main_thread_final_init(struct c_main_ctx *m_ctx)
                                            THREAD_WORKER, 
                                            0, 
                                            m_ctx->cmn_ctx.c_hdl };
+	/*Set global variable*/
+	callbk_executed = FALSE;
 
-    // Kajal: No event handling
+    /* No event handling for worker threads as they are no-op
+     * event handling is required for APP / VTY threads
+     * Therefore, setting up event base is required */
     m_ctx->cmn_ctx.base = event_base_new();
     assert(m_ctx->cmn_ctx.base); 
 
 /*
-//    m_ctx->worker_pool = calloc(m_ctx->nthreads, sizeof(void *));
-//    assert(m_ctx->worker_pool);
+    m_ctx->worker_pool = calloc(m_ctx->nthreads, sizeof(void *));
+    assert(m_ctx->worker_pool);
 
     // Worker thread creation 
     for (thread_idx = 0; thread_idx < m_ctx->nthreads; thread_idx++) {
 	
-	// Indexing the worker thread in the main_ctx
+	    // Indexing the worker thread in the main_ctx
         w_ctx_slot = c_tid_to_ctx_slot(m_ctx, thread_idx);
 
         t_args.thread_idx = thread_idx;
@@ -196,7 +207,7 @@ c_main_thread_final_init(struct c_main_ctx *m_ctx)
 
         *w_ctx_slot = w_ctx;
         
-	// Create Named pipes for IPC communication with main thread
+	    // Create Named pipes for IPC communication with main thread
         memset(ipc_path_str, 0, sizeof(ipc_path_str));
         snprintf(ipc_path_str, 63, "%s%d", C_IPC_PATH, thread_idx); 
         if (mkfifo(ipc_path_str, S_IRUSR | S_IWUSR | S_IWGRP) == -1
@@ -205,20 +216,19 @@ c_main_thread_final_init(struct c_main_ctx *m_ctx)
             assert(0);
         }
 
-	// Worker context is created for each thread, but, we will not
-	// be using it.
+	    // Worker context is created for each thread, but, we will not
+	    // be using it.
         pthread_create(&w_ctx->cmn_ctx.thread, NULL, c_thread_main, w_ctx);
 
-	// Save the fd for the named pipes in the worker context
-	// Main ctx has the w_ctx saved. So main thread knows which is the 
-	// fd on which the IPC communication needs to begin 
+	    // Save the fd for the named pipes in the worker context
+	    // Main ctx has the w_ctx saved. So main thread knows which is the 
+	    // fd on which the IPC communication needs to begin 
         w_ctx->main_wrk_conn.conn_type = C_CONN_TYPE_FILE;
         w_ctx->main_wrk_conn.fd = open(ipc_path_str, O_WRONLY);
         assert(w_ctx->main_wrk_conn.fd > 0);
 
-	// Worker thread context is saved in the main_ctx and the controller handle
+	    // Worker thread context is saved in the main_ctx and the controller handle
         ctrl_hdl->worker_ctx_list[thread_idx] = (void *)w_ctx;
-
     }
 
     // Switch listener 
@@ -232,6 +242,7 @@ c_main_thread_final_init(struct c_main_ctx *m_ctx)
                                       cc_of_new_conn_event_handler, (void*)m_ctx);
     event_add(m_ctx->c_accept_event, NULL);
 */
+	c_log_debug("(%s) testing!!!\n", __FUNCTION__);
 
     m_ctx->app_pool = calloc(m_ctx->n_appthreads, sizeof(void *));
     assert(m_ctx->app_pool);
@@ -299,30 +310,69 @@ c_main_thread_final_init(struct c_main_ctx *m_ctx)
 // 
 // This is where the hello will be triggered
 int
-mul_cc_of_accept(uint64_t dummy_dpid, uint8_t dummy_auxid, 
-                uint32_t controller_ip, uint32_t switch_ip,
-                uint16_t controller_L4_port)
+mul_cc_of_accept(uint64_t dummy_dpid, uint8_t dummy_auxid)
 {
     c_switch_t *new_switch = NULL;
 	struct c_main_ctx *c_main_ctx = ctrl_hdl.main_ctx;
 	c_per_thread_dat_t *t_data = &c_main_ctx->thread_data;
+
+	callbk_executed = TRUE;
+	
+	assert(1);
+
+	c_log_debug("(%s) Accept received dpid:%llu auxid:0x%x \n", 
+				__FUNCTION__, dummy_dpid, dummy_auxid);
+
     // A new connection needs to be estabilished
     // c_new_conn_to_thread(&ctrl_hdl->m_ctx, 0, true, false); 	
 
 	// Pass the main handler
+	// Here the switch state is SW_INIT 
+	// Later on it changes state to REGISTERED
 	new_switch = of_switch_alloc(c_main_ctx);	
+	if(new_switch == NULL)
+	{
+		c_log_debug("New switch context NOT created !!!\n");
+		callbk_executed = FALSE;
+		return CC_OF_EMISC;
+	}
+	c_log_debug("New switch context created\n");
 
 	// Add the switch info to the main thread
 	// Follow functioning in : c_worker_do_switch_add 
     new_switch->datapath_id = dummy_dpid;			
     new_switch->is_dummy_datapath_id = TRUE;			
 	new_switch->c_hdl = &ctrl_hdl;
-    t_data->sw_list = g_slist_append(t_data->sw_list, new_switch);	
+
+	// We are inserting the new_switch ctx in the sw_list
+	// t_data->sw_list = g_slist_append(t_data->sw_list, new_switch);	
+
+	// Add the switch to the hashtable in the ctrl_hndl
+	// The dummy dpid and the real datapath-id should not be same ...
+	of_switch_add(new_switch);
 
 	// Send hello
+	// This should send the messsage to the library
 	of_send_hello(new_switch);
+	callbk_executed = FALSE;
 
 	return 0; 
+}
+
+int 
+mul_cc_of_delete(uint64_t dpid, uint8_t auxid) 
+{
+	c_switch_t *sw = NULL;
+	// dp-id can be real or the dummy
+	// Basically, the connection needs to be terminated
+	
+	// Lookup for the switch
+//	sw = ;
+	
+	of_switch_del(sw);
+
+	// Do I need to put ?
+	of_switch_put(sw);
 }
 
 // Implementation of CC ONF function
@@ -358,23 +408,25 @@ mul_cc_recv_pkt(uint64_t dp_id, uint8_t aux_id, void *of_msg, size_t msg_len)
     }
     else
     {
-	// Allocate
-	b = alloc_cbuf(msg_len);
-	if(b == NULL)
-	{
-	    // Kajal: What else to log for a new connection
-	    // chann_id.aux_id -- is of type uint64_t 
-	    c_log_err("Buffer node could not be allocated dp-id:0x%x aux-id:0x%x\n",
-	              dp_id, aux_id);
-	    //return 0;
-	}
+		// Allocate
+		b = alloc_cbuf(msg_len);
+		if(b == NULL)
+		{
+			// Kajal: What else to log for a new connection
+			// chann_id.aux_id -- is of type uint64_t 
+			c_log_err("Buffer node could not be allocated dp-id:0x%x aux-id:0x%x\n",
+					  dp_id, aux_id);
+			//return 0;
+		}
 
-	// if_msg should be freed by library assuming that 
-	// buffer should copy it.
-	b->dpid = dp_id;
-	memcpy(b->data, of_msg, msg_len);
-	// Insert buffer in queue	
-	cbuf_list_queue_tail(&ctrl_hdl.c_main_buf_head, b);
+		// if_msg should be freed by library assuming that 
+		// buffer should copy it.
+		
+		// The dpid can be dummy-id or the real one
+		b->dpid = dp_id;
+		memcpy(b->data, of_msg, msg_len);
+		// Insert buffer in queue	
+		cbuf_list_queue_tail(&ctrl_hdl.c_main_buf_head, b);
     }
 
     return 0;
@@ -397,7 +449,8 @@ c_thread_event_loop_lib_support(struct c_main_ctx *main_ctx)
     struct cbuf *b = NULL;
 	c_per_thread_dat_t *t_data = &main_ctx->thread_data;
     
-    c_log_debug("%s: tid(%u)", __FUNCTION__, (unsigned int)pthread_self());
+    c_log_debug("%s: tid(%u) callbk_executed:%d\n", 
+	            __FUNCTION__, (unsigned int)pthread_self(), callbk_executed);
     // instead of looping on the socket fd, the main thread
     // will be looping on the cbuf.
     
@@ -406,34 +459,32 @@ c_thread_event_loop_lib_support(struct c_main_ctx *main_ctx)
 
     // check cbuf
     // get first message from buffer and begin the processing.
-    while(1)
+    while(!callbk_executed)
     {	
         if(cbuf_list_queue_len(&ctrl_hdl.c_main_buf_head))
         {
-	    // Get the first message
-	    b = cbuf_list_dequeue(&ctrl_hdl.c_main_buf_head);
-	    if (!of_hdr_valid(b->data)) 
-            {
-	        c_log_err("%s: Corrupted header", FN);
-	        return 0; /* Close the socket */
-            }
-
-            // No need to allocate the worker thread
-            // Pass the main_ctx now. Previously, this was:
-            // sw = of_switch_alloc(c_wrk_ctx);
+			// Get the first message
+			b = cbuf_list_dequeue(&ctrl_hdl.c_main_buf_head);
+			if (!of_hdr_valid(b->data)) 
+			{
+				c_log_err("%s: Corrupted header 0x%x", 
+							__FUNCTION__, b->dpid);
+				continue;
+				//return 0; /* Close the socket */
+			}
 
             // sw = of_switch_alloc(main_ctx);
+
 			// When the packet is recieved in the queue, it
 			// will have a sw struct already allocated
-			
-			// How to get the sw struct ?? 
 			// Get it from the main thread hashtable
+			sw = of_switch_get(&ctrl_hdl, b->dpid);
 			
-			// Change handling somewhat	    	
-            // of_switch_recv_msg(sw, b);
+		    // Call of_switch_recv	
+            of_switch_recv_msg(sw, b);
         }
 
-		sleep(1);
+		sleep(1000);
     }
 
 
@@ -453,7 +504,7 @@ c_main_thread_run(struct c_main_ctx *m_ctx)
 
     switch(m_ctx->cmn_ctx.run_state) {
     case THREAD_STATE_PRE_INIT:
-	// Kajal: This is for spurious signal handling
+	/* This is for spurious signal handling */
         signal(SIGPIPE, SIG_IGN);
         m_ctx->cmn_ctx.run_state = THREAD_STATE_FINAL_INIT;
         break;
@@ -542,12 +593,14 @@ c_app_thread_run(struct c_app_ctx *app_ctx)
     return 0;
 }
 
-// Kajal: This function is run in a while loop.
-// Basically, the state-machine for:
-// PRE-INIT
-// FINAL-INIT
-// RUNNING STATE 
-// is managed from here
+/** 
+ * This function is run in a continuous while loop
+ * The state machine for:
+ * PRE-INIT
+ * FINAL-INIT
+ * RUNNING STATE
+ * is managed here.   
+ */
 static int
 c_thread_run(void *ctx)
 {
@@ -555,15 +608,12 @@ c_thread_run(void *ctx)
     
     switch (cmn_ctx->thread_type) {
     case THREAD_MAIN:
-    // Kajal: First is PRE-INIT, FINAL-INIT, RUNNING
-    // This is the main ctx.
+    /* This is the main ctx */
        return c_main_thread_run(ctx);
-
-    // With this design change, the worker threads are not needed any longer   
-//    case THREAD_WORKER:
-//       return c_worker_thread_run(ctx); 
-
-    // Kajal: We will think about VTY and APP threads later.   
+    /* Worker threads are not needed any longer   
+    case THREAD_WORKER:
+       return c_worker_thread_run(ctx); 
+	*/
     case THREAD_VTY:
        return c_vty_thread_run(ctx);
     case THREAD_APP:
@@ -575,7 +625,6 @@ c_thread_run(void *ctx)
     return 0;
 }
 
-// Note: Here the main ctx is passed
 void *
 c_thread_main(void *arg)
 {
@@ -586,9 +635,10 @@ int
 c_thread_start(void *hdl, int nthreads, int n_appthreads)
 {
     ctrl_hdl_t *ctrl_hdl = hdl;
-    struct thread_alloc_args args = { nthreads, n_appthreads, THREAD_MAIN, 0,
-                                      hdl };
-    // Kajal: c_main_ctx and c_worker_ctx are different
+    struct thread_alloc_args args = { 0/*number of switch threads*/, 
+                                      n_appthreads, THREAD_MAIN, 0, hdl };
+
+    // c_main_ctx and c_worker_ctx are different
     // c_main_ctx has the worker pool associated in 
     // struct c_worker_ctx **worker_pool;
     // The main context has the handler to the controller m_ctx->cmn_ctx.c_hdl
@@ -596,11 +646,10 @@ c_thread_start(void *hdl, int nthreads, int n_appthreads)
     // In this MUL model, we will be operating on the main_ctx and will add the switch
     // information in ctrl_hdl:
     // GHashTable *sw_hash_tbl;
-    args.nthreads = 0;
     struct c_main_ctx *main_ctx = c_alloc_thread_ctx(&args);
     ctrl_hdl->main_ctx = (void *)main_ctx;
 
-    // This is with attribute of pre-init
+    /* This is with attribute of pre-init */
     pthread_create(&main_ctx->cmn_ctx.thread, NULL, c_thread_main, main_ctx);
     return 0;
 }

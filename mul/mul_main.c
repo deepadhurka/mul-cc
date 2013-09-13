@@ -40,7 +40,7 @@ usage(char *progname, int status)
 {
     printf("%s Options:\n", progname);
     printf("-d : Daemon Mode\n");
-    printf("-S <num> : Number of switch handler threads\n");
+    // printf("-S <num> : Number of switch handler threads\n");
     printf("-A <num> : Number of app handler threads\n");
     printf("-h : Help\n");
 
@@ -48,17 +48,22 @@ usage(char *progname, int status)
 }
 
 void 
-mul_terminate()
+mul_terminate(int param)
 {
-	printf("signal caught\n");
+	struct sockaddr_in ip_addr;
+	uint32_t network_byte_order;
+
+    inet_aton(C_CONTROLLER_IP, &ip_addr.sin_addr.s_addr);
+	network_byte_order = ntohl(ip_addr.sin_addr.s_addr);
+
     printf("Calling OFLIB API to free library\n");
-    //cc_of_dev_free(ip_addr, 0, C_LISTEN_PORT);    
-    //cc_of_lib_free();
+    cc_of_dev_free(network_byte_order, 0, C_LISTEN_PORT);    
+    cc_of_lib_free();
 
     pthread_exit(NULL);
 
     /* Not reached. */
-    return (0);
+    return;
 }
 
 int
@@ -67,8 +72,8 @@ main(int argc, char **argv)
     char    *p;
     int     daemon_mode = 0;
     char    *progname;
-    int     sthreads = 4, athreads = 2;
-    uint32_t ip_addr = 0;
+    int     athreads = 2; /*sthreads = 4*/
+	struct sockaddr_in ip_addr;
 
     /* Set umask before anything for security */
     umask (0027);
@@ -90,7 +95,8 @@ main(int argc, char **argv)
         case 'd':
             daemon_mode = 1;
             break;
-	// Kajal: Switch threads are a no-op
+
+		/* Switch threads are a no-op
         case 'S': 
             sthreads = atoi(optarg);
             if (sthreads < 0 || sthreads > 16) {
@@ -98,6 +104,7 @@ main(int argc, char **argv)
                 exit(0);
             }
             break;
+		*/
         case 'A':
             athreads = atoi(optarg);
             if (athreads < 0 || athreads > 8) {
@@ -121,28 +128,32 @@ main(int argc, char **argv)
     c_pid_output(C_PID_PATH);
 
     signal(SIGPIPE, SIG_IGN);
+
 	/* Handle process termination by SIGINT */
 	signal(SIGINT, mul_terminate);
 
-    /* initialize controller handler */
-    of_ctrl_init(&ctrl_hdl, sthreads, athreads);
+    /* Initialize controller handler */
+    of_ctrl_init(&ctrl_hdl, 0, athreads);
 
-    // Add the library init function
+    /* Library init function */
     cc_of_debug_toggle(TRUE);
     cc_of_lib_init(CONTROLLER);
     cc_of_log_toggle(TRUE);
 
-    // Device register
+    /* Device register with library */
     //struct in_addr ip_addr;
-    ip_addr = inet_aton(C_CONTROLLER_IP, &ip_addr);
-    cc_of_dev_register(ip_addr, 0, C_LISTEN_PORT,
-                       CC_OFVER_1_0, mul_cc_recv_pkt);
+    inet_aton(C_CONTROLLER_IP, &ip_addr.sin_addr.s_addr);
+	uint32_t network_byte_order;
+	network_byte_order = ntohl(ip_addr.sin_addr.s_addr);
+    cc_of_dev_register(network_byte_order, 0/*switch IP*/, C_LISTEN_PORT,
+                       CC_OFVER_1_0, mul_cc_recv_pkt, 
+					   mul_cc_of_accept, mul_cc_of_delete);
 
-    // Initialize the c_main_buf_head in the ctrl_handler
-    //
-    // The 2 variables added are:
-    // 1. struct_cbuf_head c_main_buf_head
-    // 2. struct cbuf *main_cbuf_node ===> Not used for now
+    /* Initialize the c_main_buf_head in the ctrl_handler
+     * The 2 variables added are: 
+	 * 1. struct_cbuf_head c_main_buf_head
+     * 2. struct cbuf *main_cbuf_node ==> Not used for now
+     */
     cbuf_list_head_init(&ctrl_hdl.c_main_buf_head);
 
     clog_default = openclog (progname, CLOG_MUL,
@@ -150,15 +161,16 @@ main(int argc, char **argv)
     clog_set_level(NULL, CLOG_DEST_SYSLOG, LOG_WARNING);
     clog_set_level(NULL, CLOG_DEST_STDOUT, LOG_DEBUG);
 
-    // The switch threads are no longer required in this MUL
+    /* switch threads are not required */
     // c_thread_start(&ctrl_hdl, sthreads, athreads);
     c_thread_start(&ctrl_hdl, 0, athreads);
 
     while (1) {
         sleep(1);
     }
+
     printf("Calling OFLIB API to free library\n");
-    cc_of_dev_free(ip_addr, 0, C_LISTEN_PORT);    
+    cc_of_dev_free((uint32_t)ip_addr.sin_addr.s_addr, 0, C_LISTEN_PORT);    
     cc_of_lib_free();
 
     pthread_exit(NULL);

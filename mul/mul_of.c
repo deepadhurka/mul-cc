@@ -162,11 +162,13 @@ of_switch_add(c_switch_t *sw)
     }
 
     g_hash_table_add(ctrl->sw_hash_tbl, sw);
+	c_log_debug("(%s) Added to the hashtable dpid:%llu\n", 
+                 __FUNCTION__, sw->datapath_id);
     // Each switch has a index associated with it 
-    if ((sw->alias_id = ipool_get(ctrl->sw_ipool, sw)) < 0) {
-        /* Throw a log and continue as we still can continue */
-        c_log_err("%s: Cant get alias for switch 0x%llx\n", FN, sw->DPID);
-    }
+//    if ((sw->alias_id = ipool_get(ctrl->sw_ipool, sw)) < 0) {
+//        /* Throw a log and continue as we still can continue */
+//        c_log_err("%s: Cant get alias for switch 0x%llx\n", FN, sw->DPID);
+//    }
 
     c_wr_unlock(&ctrl->lock);
 
@@ -184,18 +186,21 @@ of_switch_del(c_switch_t *sw)
        g_hash_table_remove(ctrl->sw_hash_tbl, sw);
     }
 
-    if (ctrl->sw_ipool) {
-        ipool_put(ctrl->sw_ipool, sw->alias_id);
-    }
+//    if (ctrl->sw_ipool) {
+//        ipool_put(ctrl->sw_ipool, sw->alias_id);
+//    }
     c_wr_unlock(&ctrl->lock);
 
-    if (sw->conn.cbuf) {
-        free_cbuf(sw->conn.cbuf);
-        sw->conn.cbuf = NULL;
-    }
+	if(!sw->is_dummy_datapath_id)
+	{
+		if (sw->conn.cbuf) {
+			free_cbuf(sw->conn.cbuf);
+			sw->conn.cbuf = NULL;
+		}
+		sw->switch_state = SW_DEAD;
+		c_signal_app_event(sw, NULL, C_DP_UNREG, NULL, NULL);
+	}
 
-    sw->switch_state = SW_DEAD;
-    c_signal_app_event(sw, NULL, C_DP_UNREG, NULL, NULL);
 }
 
 // Kajal: The main_ctx is passed here for the switches
@@ -1305,6 +1310,8 @@ of_send_hello(c_switch_t *sw)
     struct cbuf *b;
 
     /* Send OFPT_HELLO */
+	c_log_debug("(%s) Send Hello to library dummy_dpid:%llu\n", 
+				 __FUNCTION__, sw->datapath_id);
     b = of_prep_msg(sizeof(struct ofp_header), OFPT_HELLO, 0);
 
     c_thread_tx(&sw->conn, b, false, sw->datapath_id);
@@ -1515,12 +1522,12 @@ of_recv_port_status(c_switch_t *sw, struct cbuf *b)
 }
 
 // Kajal: This is where the new connection gets saved in the controller
-// Here, we can call the library API to save the information in the library
 static void
 of_recv_features_reply(c_switch_t *sw, struct cbuf *b)
 {
 	bool is_dummy_dpid = FALSE;
-	unsigned long long int  dummy_datapath_id; 
+	uint64_t dummy_datapath_id;
+	//unsigned long long int  dummy_datapath_id; 
     struct ofp_switch_features  *osf = (void *)(b->data);
     size_t                       n_ports, i;
 
@@ -1531,6 +1538,17 @@ of_recv_features_reply(c_switch_t *sw, struct cbuf *b)
 	dummy_datapath_id = sw->datapath_id;
 	is_dummy_dpid = sw->is_dummy_datapath_id;
 	
+	if(is_dummy_dpid)
+	{
+		// The sw has the dummy datapath-id set
+		// Delete dummy sw node
+		//of_switch_del(sw);
+		
+		// Set to FALSE after del is done
+		sw->is_dummy_datapath_id = FALSE;
+				
+	}
+
     // Kajal: Based on the packet the information is present in the buffer
     sw->datapath_id = ntohll(osf->datapath_id);
     sw->version     = osf->header.version;
@@ -1553,8 +1571,7 @@ of_recv_features_reply(c_switch_t *sw, struct cbuf *b)
     sw->n_ports = n_ports;
 
     if (sw->switch_state != SW_REGISTERED) {
-	//Add the switch table info to the controller handler
-	// 
+	//Again add the switch table info to the controller handler
         of_switch_add(sw);
         sw->switch_state = SW_REGISTERED;
         sw->last_sample_time = g_get_monotonic_time();
@@ -2124,7 +2141,7 @@ of_switch_recv_msg(void *sw_arg, struct cbuf *b)
         (oh->type != OFPT_ECHO_REQUEST) &&
         (oh->type != OFPT_FEATURES_REPLY))
 	{
-		// Kajal: New connection
+		// New connection
         of_send_features_request(sw);
         return;
     }
