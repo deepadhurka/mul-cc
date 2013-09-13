@@ -64,7 +64,6 @@ c_alloc_thread_ctx(struct thread_alloc_args *args)
             struct c_main_ctx *m_ctx;
 
 	        c_log_debug("nthreads:%d", __FUNCTION__, args->nthreads);
-//            assert(args->nthreads > 0 && args->nthreads <= C_MAX_THREADS);
             assert(args->n_appthreads >= 0 && 
                    args->n_appthreads <= C_MAX_APP_THREADS);
             m_ctx = calloc(1, sizeof(struct c_main_ctx));      
@@ -328,7 +327,6 @@ mul_cc_of_accept(uint64_t dummy_dpid, uint8_t dummy_auxid)
 	// Pass the main handler
 	// Here the switch state is SW_INIT 
 	// Later on it changes state to REGISTERED
-/*
 	new_switch = of_switch_alloc(c_main_ctx);	
 	if(new_switch == NULL)
 	{
@@ -358,7 +356,6 @@ mul_cc_of_accept(uint64_t dummy_dpid, uint8_t dummy_auxid)
 
 	// back to while
 	callbk_executed = FALSE;
-*/
 	return 0; 
 }
 
@@ -497,7 +494,8 @@ c_thread_event_loop_lib_support(struct c_main_ctx *main_ctx)
 			// When the packet is recieved in the queue, it
 			// will have a sw struct already allocated
 			// Get it from the main thread hashtable
-			c_log_debug("(%s) Get the switch context dp_id:%lu len:%d\n", __FUNCTION__, b->dpid, len);
+			c_log_debug("(%s) Get the switch context dp_id:%lu len:%d\n", 
+						__FUNCTION__, b->dpid, len);
 			sw = of_switch_get(&ctrl_hdl, b->dpid);
 			if(sw != NULL)
 			{
@@ -512,7 +510,7 @@ c_thread_event_loop_lib_support(struct c_main_ctx *main_ctx)
 			}	
         }
 
-		// Let callback execute
+		// Let execution happen
 		usleep(1000);
     }
 

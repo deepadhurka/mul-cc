@@ -165,10 +165,11 @@ of_switch_add(c_switch_t *sw)
 	c_log_debug("(%s) Added to the hashtable dpid:%llu\n", 
                  __FUNCTION__, sw->datapath_id);
     // Each switch has a index associated with it 
-//    if ((sw->alias_id = ipool_get(ctrl->sw_ipool, sw)) < 0) {
-//        /* Throw a log and continue as we still can continue */
-//        c_log_err("%s: Cant get alias for switch 0x%llx\n", FN, sw->DPID);
-//    }
+    if ((sw->alias_id = ipool_get(ctrl->sw_ipool, sw)) < 0) {
+        /* Throw a log and continue as we still can continue */
+        c_log_err("(%s) Cant get alias for switch 0x%llx\n", 
+					__FUNCTION__, sw->datapath_id);
+    }
 
     c_wr_unlock(&ctrl->lock);
 
@@ -186,9 +187,9 @@ of_switch_del(c_switch_t *sw)
        g_hash_table_remove(ctrl->sw_hash_tbl, sw);
     }
 
-//    if (ctrl->sw_ipool) {
-//        ipool_put(ctrl->sw_ipool, sw->alias_id);
-//    }
+    if (ctrl->sw_ipool) {
+        ipool_put(ctrl->sw_ipool, sw->alias_id);
+    }
     c_wr_unlock(&ctrl->lock);
 
 	if(!sw->is_dummy_datapath_id)
@@ -2122,14 +2123,15 @@ struct of_handler of_handlers[] __aligned = {
 void __fastpath
 of_switch_recv_msg(void *sw_arg, struct cbuf *b)
 {
-    c_switch_t        *sw = sw_arg;
+    c_switch_t *sw = sw_arg;
     struct ofp_header *oh;
 
     prefetch(&of_handlers[OFPT_PACKET_IN]);
 
     oh = (void *)b->data;
 
-    //c_log_debug("OF MSG RX TYPE (%d)", oh->type);
+    c_log_debug("(%s) OF MSG RX TYPE (%d)", 
+                __FUNCTION__, oh->type);
 	
 	// As datapath_id will have the dummy sockfd, 
 	// we cannot use this condition directly
