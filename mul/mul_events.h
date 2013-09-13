@@ -19,6 +19,7 @@
 
 #ifndef __MUL_EVENTS_H__
 #define __MUL_EVENTS_H__
+#include "cc_of_lib.h"
 
 /* Cast to struct event */
 #define C_EVENT(x) ((struct event *)(x))
@@ -52,6 +53,12 @@ c_thread_sg_tx_sync(void *conn_arg)
 static inline void
 c_thread_tx(void *conn, struct cbuf *b, bool only_q, uint64_t datapath_id)
 {
+	size_t sz = 0;
+	c_log_debug("(%s) Sending packet to library %lu\n", 
+				__FUNCTION__, datapath_id);
+
+	sz = (size_t)b->len;
+    cc_of_send_pkt(datapath_id, 0/*aux-id*/,(void *)b->data, sz);
     //c_switch_t *sw = sw_arg;
     
     // call the library API 
