@@ -368,7 +368,8 @@ int
 mul_cc_recv_pkt(uint64_t dp_id, uint8_t aux_id, void *of_msg, size_t msg_len);
 
 int
-mul_cc_of_accept(uint64_t dummy_dpid, uint8_t dummy_auxid);
+mul_cc_of_accept(uint64_t dummy_dpid, uint8_t dummy_auxid,
+                 uint32_t switch_ip, uint16_t switch_port);
 
 int
 mul_cc_of_delete(uint64_t dpid, uint8_t auxid);
