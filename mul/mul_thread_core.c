@@ -22,7 +22,7 @@ bool callbk_executed = FALSE;
 void *c_thread_main(void *arg);
 int  c_vty_thread_run(void *arg);
 static int
-c_thread_event_loop_lib_support(struct c_main_ctx *main_ctx);
+mul_cc_thread_event_loop_lib_support(struct c_main_ctx *main_ctx);
 
 int
 c_set_thread_dfl_affinity(void)
@@ -63,7 +63,7 @@ c_alloc_thread_ctx(struct thread_alloc_args *args)
         {
             struct c_main_ctx *m_ctx;
 
-	        c_log_debug("nthreads:%d", __FUNCTION__, args->nthreads);
+	        c_log_debug("(%s) nthreads:%d", __FUNCTION__, args->nthreads);
             assert(args->n_appthreads >= 0 && 
                    args->n_appthreads <= C_MAX_APP_THREADS);
             m_ctx = calloc(1, sizeof(struct c_main_ctx));      
@@ -81,8 +81,7 @@ c_alloc_thread_ctx(struct thread_alloc_args *args)
     case THREAD_WORKER:
         {
 			/* This code should not get executed */
-	        c_log_debug("Worker thread creation -- not to be executed !!!", 
-                        __FUNCTION__);
+	        c_log_debug("Worker thread creation -- not to be executed !!!");
             struct c_worker_ctx *w_ctx;
             w_ctx = calloc(1, sizeof(struct c_worker_ctx));      
             assert(w_ctx);
@@ -173,18 +172,16 @@ static int
 c_main_thread_final_init(struct c_main_ctx *m_ctx)
 {
     evutil_socket_t             c_listener;
-    struct c_worker_ctx         *w_ctx, **w_ctx_slot;
+    //struct c_worker_ctx         *w_ctx, **w_ctx_slot;
     struct c_vty_ctx            *vty_ctx;
     struct c_app_ctx            *app_ctx, **app_ctx_slot;
     char                        ipc_path_str[64];
     int                         thread_idx;
-    ctrl_hdl_t                  *ctrl_hdl = m_ctx->cmn_ctx.c_hdl;
+    //ctrl_hdl_t                  *ctrl_hdl = m_ctx->cmn_ctx.c_hdl;
     struct thread_alloc_args    t_args = { 0, 0, 
                                            THREAD_WORKER, 
                                            0, 
                                            m_ctx->cmn_ctx.c_hdl };
-	/*Set global variable*/
-	callbk_executed = FALSE;
 
     /* No event handling for worker threads as they are no-op
 	* event handling is required for APP / VTY threads
@@ -310,14 +307,12 @@ c_main_thread_final_init(struct c_main_ctx *m_ctx)
 //
 // This is where the hello will be triggered
 int
-mul_cc_of_accept(uint64_t dummy_dpid, uint8_t dummy_auxid)
+mul_cc_of_accept(uint64_t dummy_dpid, uint8_t dummy_auxid,
+				 uint32_t switch_ip, uint16_t switch_port)
 {
     c_switch_t *new_switch = NULL;
 	struct c_main_ctx *c_main_ctx = ctrl_hdl.main_ctx;
 
-	/*Set global variable*/
-	callbk_executed = TRUE;
-	
 	c_log_debug("(%s) Accept received dpid:%lu auxid:0x%x \n", 
 				__FUNCTION__, dummy_dpid, dummy_auxid);
 
@@ -331,7 +326,6 @@ mul_cc_of_accept(uint64_t dummy_dpid, uint8_t dummy_auxid)
 	if(new_switch == NULL)
 	{
 		c_log_debug("New switch context NOT created !!!\n");
-		callbk_executed = FALSE;
 		return CC_OF_EMISC;
 	}
 
@@ -341,6 +335,12 @@ mul_cc_of_accept(uint64_t dummy_dpid, uint8_t dummy_auxid)
 	// Follow functioning in : c_worker_do_switch_add 
     new_switch->datapath_id = dummy_dpid;			
     new_switch->is_dummy_datapath_id = TRUE;			
+	struct in_addr *switch_addr;
+	switch_addr = (struct in_addr *)&switch_ip;
+	snprintf(new_switch->conn.conn_str, C_CONN_DESC_SZ -1, "%s:%d",
+			inet_ntoa(*switch_addr), switch_port);
+	c_log_debug("(%s) switch:port str:%s\n", 
+				__FUNCTION__, new_switch->conn.conn_str);
 	new_switch->c_hdl = &ctrl_hdl;
 
 	// We are inserting the new_switch ctx in the sw_list
@@ -354,8 +354,6 @@ mul_cc_of_accept(uint64_t dummy_dpid, uint8_t dummy_auxid)
 	// This should send the messsage to the library
 	of_send_hello(new_switch);
 
-	// back to while
-	callbk_executed = FALSE;
 	return 0; 
 }
 
@@ -373,6 +371,8 @@ mul_cc_of_delete(uint64_t dpid, uint8_t auxid)
 
 	// Do I need to put ?
 	of_switch_put(sw);
+	
+	return 0;
 }
 
 // Implementation of CC ONF function
@@ -399,44 +399,69 @@ int
 mul_cc_recv_pkt(uint64_t dp_id, uint8_t aux_id, void *of_msg, size_t msg_len)
 {
     
+	size_t len = 0;
     struct cbuf *b = NULL;
 
-	c_log_debug("(%s) Recv received dpid:%lu auxid:%d \n", 
-				__FUNCTION__, dp_id, aux_id);
+	c_log_debug("(%s) Recv received dpid:%lu auxid:%d msg_len:%d\n", 
+				__FUNCTION__, dp_id, aux_id, msg_len);
     
-	callbk_executed = TRUE;
-    if(cbuf_list_queue_len(&ctrl_hdl.c_main_buf_head) > 1024) 
+	// The msg_len from the library is not working
+	// Have a sufficient size buffer
+	// Open flow messages are processed based on a valid header
+	msg_len = 1024;
+    if(cbuf_list_queue_len(&ctrl_hdl.c_main_buf_head) > (1024 * 1024)) 
     {
 		// Throw an error
 		c_log_err("(%s) Main thread buffer queue is full\n");
     }
     else
     {
-		// Allocate
+		// There is a bug in the library or in the message it receives, 
+		// message length is always going to be 0
 		b = alloc_cbuf(msg_len);
+		// The CBUF_SZ will always be allocated
 		if(b == NULL)
 		{
 			c_log_err("(%s) Buffer node not allocated dp-id:0x%x aux-id:0x%x\n",
-					  dp_id, aux_id);
-			//return 0;
+					  __FUNCTION__, dp_id, aux_id);
+			return CC_OF_ENOMEM;
+		}
+		else
+		{
+			// if_msg should be freed by library assuming that 
+			// buffer should copy it.
+			
+			// The dpid can be dummy-id or the real one
+			b->dpid = dp_id;
+			
+			if(msg_len != 0)
+			{
+				struct cbuf *new = NULL;
+				new = alloc_cbuf(msg_len);
+
+				new->dpid = dp_id;
+
+			    memcpy(new->data, of_msg, msg_len);	
+				cbuf_put(new, msg_len);
+
+				free(b);
+				b = new;
+			}
+
+			// Debugging: print length
+			//len = cbuf_list_queue_len(&ctrl_hdl.c_main_buf_head);
+			//c_log_debug("(%s) BEFORE queue_len:%d\n", __FUNCTION__, len);
+
+			// Insert buffer in queue	
+			cbuf_list_queue_tail(&ctrl_hdl.c_main_buf_head, b);
+
+			// Debugging: print length
+			//len = cbuf_list_queue_len(&ctrl_hdl.c_main_buf_head);
+			//c_log_debug("(%s) AFTER queue_len:%d\n", __FUNCTION__, len);
 		}
 
-		// if_msg should be freed by library assuming that 
-		// buffer should copy it.
-		
-		// The dpid can be dummy-id or the real one
-		b->dpid = dp_id;
-		memcpy(b->data, of_msg, msg_len);
-		// Insert buffer in queue	
-		cbuf_list_queue_tail(&ctrl_hdl.c_main_buf_head, b);
-
-		size_t len = 0;
-		len = cbuf_list_queue_len(&ctrl_hdl.c_main_buf_head);
-		c_log_debug("(%s) queue_len:%d\n", __FUNCTION__, len);
+		//usleep(1);
     }
-
-	// back to while
-	callbk_executed = FALSE;
 
     return 0;
 }
@@ -452,15 +477,16 @@ mul_cc_recv_pkt(uint64_t dp_id, uint8_t aux_id, void *of_msg, size_t msg_len)
 // can get the information from the c_switch_t->cmn_ctx where the 
 // hashtable stores the DPID and switch information 
 static int
-c_thread_event_loop_lib_support(struct c_main_ctx *main_ctx)
+mul_cc_thread_event_loop_lib_support(struct c_main_ctx *main_ctx)
 {
-	uint32_t len = 0;
+	uint32_t curr_len = 0;
+	uint32_t queue_len = 0;
     c_switch_t *sw = NULL;
     struct cbuf *b = NULL;
-	c_per_thread_dat_t *t_data = &main_ctx->thread_data;
+	//c_per_thread_dat_t *t_data = &main_ctx->thread_data;
     
-    c_log_debug("(%s) tid(%u) callbk_executed:%d\n", 
-	            __FUNCTION__, (unsigned int)pthread_self(), callbk_executed);
+    c_log_debug("(%s) tid(%u) \n", 
+	            __FUNCTION__, (unsigned int)pthread_self());
     // instead of looping on the socket fd, the main thread
     // will be looping on the cbuf.
     
@@ -471,43 +497,64 @@ c_thread_event_loop_lib_support(struct c_main_ctx *main_ctx)
     // get first message from buffer and begin the processing.
     while(1)
     {	
-		len = cbuf_list_queue_len(&ctrl_hdl.c_main_buf_head);
-		//c_log_debug("(%s) In while loop len:%d\n", __FUNCTION__, len);	
+		queue_len = cbuf_list_queue_len(&ctrl_hdl.c_main_buf_head);
+		//c_log_debug("(%s) In while loop len:%d", __FUNCTION__, queue_len);	
 
-        if(len != 0)
+        if(queue_len != 0)
         {
-			len = cbuf_list_queue_len(&ctrl_hdl.c_main_buf_head);
-		    //c_log_debug("(%s) A message in the queue len:%d\n", __FUNCTION__, len);	
 
-			// Get the first message
+			// Get the message
 			b = cbuf_list_dequeue(&ctrl_hdl.c_main_buf_head);
-			if (!of_hdr_valid(b->data)) 
+			curr_len = cbuf_list_queue_len(&ctrl_hdl.c_main_buf_head);
+		    c_log_debug("(%s) curr queue len:%d", __FUNCTION__, curr_len);	
+			if(b == NULL)
 			{
-				c_log_err("%s: Corrupted header 0x%x len:%d", 
-							__FUNCTION__, b->dpid, len);
+				// Should never happen!!!
+				c_log_debug("(%s) Message is NULL curr_queue_len:%d\n", 
+							__FUNCTION__, curr_len);
 				continue;
-				//return 0; 
 			}
 
-            // sw = of_switch_alloc(main_ctx);
+			//c_log_debug("(%s) b_len:%d", __FUNCTION__, b->len);
 
-			// When the packet is recieved in the queue, it
-			// will have a sw struct already allocated
-			// Get it from the main thread hashtable
-			c_log_debug("(%s) Get the switch context dp_id:%lu len:%d\n", 
-						__FUNCTION__, b->dpid, len);
-			sw = of_switch_get(&ctrl_hdl, b->dpid);
-			if(sw != NULL)
+			if(b->len)
 			{
-				// Call of_switch_recv	
-				of_switch_recv_msg(sw, b);
+				if (!of_hdr_valid(b->data)) 
+				{
+					//c_log_err("(%s) Corrupted header dpid:%lu b_len:%d queue_len:%d", 
+					//			__FUNCTION__, b->dpid, b->len, curr_len);
+					continue;
+					//return 0; 
+				}
+				else
+				{
+					struct ofp_header *h;
+					h = (void *)b->data;
+					//c_log_debug("(%s) xid:0x%x VALID!!!",__FUNCTION__, h->xid);
+				}
+
+				// sw = of_switch_alloc(main_ctx);
+
+				// When the packet is recieved in the queue, it
+				// will have a sw struct already allocated
+				// Get it from the main thread hashtable
+				//c_log_debug("(%s) Get the switch context dp_id:%lu len:%d\n", 
+				//			__FUNCTION__, b->dpid, curr_len);
+
+				sw = of_switch_get(&ctrl_hdl, b->dpid);
+				if(sw != NULL)
+				{
+					// Call of_switch_recv	
+					of_switch_recv_msg(sw, b);
+				}
+				else
+				{
+					// NULL context returned
+					//c_log_debug("(%s) could not get switch context for dp_id:%lu\n", 
+					//			 __FUNCTION__, b->dpid);
+				}	
+
 			}
-			else
-			{
-				// NULL context returned
-				c_log_debug("(%s) could not get switch context for dp_id:%lu\n", 
-                             __FUNCTION__, b->dpid);
-			}	
         }
 
 		// Let execution happen
@@ -537,7 +584,7 @@ c_main_thread_run(struct c_main_ctx *m_ctx)
     case THREAD_STATE_FINAL_INIT:
         return c_main_thread_final_init(m_ctx);
     case THREAD_STATE_RUNNING:
-        return c_thread_event_loop_lib_support((void *)m_ctx);
+        return mul_cc_thread_event_loop_lib_support((void *)m_ctx);
     }
     return 0;
 }
