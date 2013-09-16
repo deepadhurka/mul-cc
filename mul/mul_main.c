@@ -136,9 +136,9 @@ main(int argc, char **argv)
     of_ctrl_init(&ctrl_hdl, 0, athreads);
 
     /* Library init function */
-    cc_of_debug_toggle(TRUE);
+//    cc_of_debug_toggle(TRUE);
     cc_of_lib_init(CONTROLLER);
-    cc_of_log_toggle(TRUE);
+//    cc_of_log_toggle(TRUE);
 
     /* Device register with library */
     //struct in_addr ip_addr;

@@ -241,6 +241,7 @@ of_switch_get(ctrl_hdl_t *ctrl, uint64_t dpid)
 
     c_rd_lock(&ctrl->lock);
 
+	c_log_debug("(%s) OF switch get dpid:%lu", __FUNCTION__, dpid);
     // The controller had the link to the hashtable
     // So, basically, its a global DS which gets finally updated
     // No need to think about main and worker threads at this point
@@ -319,43 +320,49 @@ of_switch_detail_info(c_switch_t *sw,
     struct ofp_phy_port *port_msg, *port;
     int n = 0;
 
-    osf->datapath_id = htonll(sw->DPID);
-    osf->n_buffers = htonl(sw->n_buffers);
-    osf->n_tables = sw->n_tables;
-    osf->capabilities = htonl(sw->capabilities);
-    osf->actions = htonl(sw->actions);
+	if(sw->is_dummy_datapath_id != TRUE)
+	{
+		osf->datapath_id = htonll(sw->DPID);
+		osf->n_buffers = htonl(sw->n_buffers);
+		osf->n_tables = sw->n_tables;
+		osf->capabilities = htonl(sw->capabilities);
+		osf->actions = htonl(sw->actions);
 
-    port_msg = osf->ports;
+		port_msg = osf->ports;
 
-    for (; n < OFSW_MAX_PORTS; n++) {
-        if (!sw->ports[n].valid) continue;
+		for (; n < OFSW_MAX_PORTS; n++) {
+			if (!sw->ports[n].valid) continue;
 
-        port = &sw->ports[n].p_info;
+			port = &sw->ports[n].p_info;
 
-        port_msg->port_no = htons(n);
-        port_msg->config = htonl(port->config);
-        port_msg->state = htonl(port->state);
-        port_msg->curr = htonl(port->curr);
-        port_msg->advertised = htonl(port->advertised);
-        port_msg->supported = htonl(port->supported);
-        port_msg->peer = htonl(port->peer);
+			port_msg->port_no = htons(n);
+			port_msg->config = htonl(port->config);
+			port_msg->state = htonl(port->state);
+			port_msg->curr = htonl(port->curr);
+			port_msg->advertised = htonl(port->advertised);
+			port_msg->supported = htonl(port->supported);
+			port_msg->peer = htonl(port->peer);
 
-        memcpy(port_msg->name, port->name, OFP_MAX_PORT_NAME_LEN);
-        memcpy(port_msg->hw_addr, port->hw_addr, OFP_ETH_ALEN);
+			memcpy(port_msg->name, port->name, OFP_MAX_PORT_NAME_LEN);
+			memcpy(port_msg->hw_addr, port->hw_addr, OFP_ETH_ALEN);
 
-        port_msg++;
-    }
+			port_msg++;
+		}
+	}
 }
 
 void
 of_switch_brief_info(c_switch_t *sw,
                      struct c_ofp_switch_brief *cofp_sb) 
 {
-    cofp_sb->switch_id.datapath_id = htonll(sw->DPID);
-    cofp_sb->n_ports = ntohl(sw->n_ports);
-    cofp_sb->state = ntohl(sw->switch_state); 
-    strncpy(cofp_sb->conn_str, sw->conn.conn_str, OFP_CONN_DESC_SZ);
-    cofp_sb->conn_str[OFP_CONN_DESC_SZ-1] = '\0';
+	if(sw->is_dummy_datapath_id != TRUE)
+	{
+		cofp_sb->switch_id.datapath_id = htonll(sw->DPID);
+		cofp_sb->n_ports = ntohl(sw->n_ports);
+		cofp_sb->state = ntohl(sw->switch_state); 
+		strncpy(cofp_sb->conn_str, sw->conn.conn_str, OFP_CONN_DESC_SZ);
+		cofp_sb->conn_str[OFP_CONN_DESC_SZ-1] = '\0';
+	}
 }
 
 
@@ -1311,7 +1318,7 @@ of_send_hello(c_switch_t *sw)
     struct cbuf *b;
 
     /* Send OFPT_HELLO */
-	c_log_debug("(%s) Send Hello to library dummy_dpid:%llu\n", 
+	c_log_debug("(%s) Send Hello to library dummy_dpid:%lu\n", 
 				 __FUNCTION__, sw->datapath_id);
     b = of_prep_msg(sizeof(struct ofp_header), OFPT_HELLO, 0);
 
@@ -1526,41 +1533,72 @@ of_recv_port_status(c_switch_t *sw, struct cbuf *b)
 static void
 of_recv_features_reply(c_switch_t *sw, struct cbuf *b)
 {
+	char arr[32];
+	c_switch_t *compare_sw = NULL;
 	bool is_dummy_dpid = FALSE;
 	uint64_t dummy_datapath_id;
-	//unsigned long long int  dummy_datapath_id; 
     struct ofp_switch_features  *osf = (void *)(b->data);
     size_t                       n_ports, i;
+	struct c_main_ctx *c_main_ctx = ctrl_hdl.main_ctx;
 
     n_ports = ((ntohs(osf->header.length)
                 - offsetof(struct ofp_switch_features, ports))
             / sizeof *osf->ports);
 
+	c_log_debug("(%s) n_ports:%d", __FUNCTION__, n_ports);
 	dummy_datapath_id = sw->datapath_id;
 	is_dummy_dpid = sw->is_dummy_datapath_id;
 	
-	if(is_dummy_dpid)
+	// NEED the dpid hack
+	// check if dpid exists in the hashtable
+	c_log_debug("dpid:%lu being looked up is_dummy:%d\n", 
+				ntohll(osf->datapath_id), is_dummy_dpid);
+	compare_sw = of_switch_get(&ctrl_hdl, ntohll(osf->datapath_id));	
+	if(compare_sw != NULL)
 	{
-		// The sw has the dummy datapath-id set
-		// Delete dummy sw node
-		//of_switch_del(sw);
-		
-		// Set to FALSE after del is done
-		sw->is_dummy_datapath_id = FALSE;
-				
+		c_log_debug("(%s) dpid:%lu present in the hashtable\n", 
+					__FUNCTION__, ntohll(osf->datapath_id));
+		// Do nothing further ; no updates to mul / library
+		return;
+	}
+	else
+	{
+		c_log_debug("(%s) dpid:%lu NOT present in the hashtable\n", 
+					__FUNCTION__, ntohll(osf->datapath_id));
 	}
 
+	// copy the str 
+	memcpy(arr, sw->conn.conn_str, 32);
+	// Delete entry with dummy dpid
+	of_switch_del(sw);
+
+	// allocate new entry
+	sw = of_switch_alloc(c_main_ctx);
+    if(sw == NULL)
+    {
+        c_log_debug("New switch context NOT created !!!\n");
+        return CC_OF_EMISC;
+    }
+
+	
     // Kajal: Based on the packet the information is present in the buffer
+	// Update the datapath_id
     sw->datapath_id = ntohll(osf->datapath_id);
     sw->version     = osf->header.version;
     sw->n_buffers   = ntohl(osf->n_buffers);
     sw->n_tables    = osf->n_tables;
     sw->actions     = ntohl(osf->actions);
     sw->capabilities = ntohl(osf->capabilities);
+	sw->is_dummy_datapath_id= FALSE;
+	memcpy(sw->conn.conn_str, arr, 32);
+	c_log_debug("(%s) dpid:%lu version:%d n_tables:%d actions:0x%x capabilities:0x%p n_buffers:%d", 
+                __FUNCTION__, sw->datapath_id, sw->version, sw->n_tables,
+				sw->actions, sw->capabilities, sw->n_buffers);
 
 	// Kajal: Now we have the real datapath_id
 	// Call the library to give the datapath_id to it
     cc_of_set_real_dpid_auxid(dummy_datapath_id, 0, sw->datapath_id, 0);	
+	c_log_debug("(%s) real dpid sent to library", __FUNCTION__);
 	sw->is_dummy_datapath_id = FALSE;
 
     for (i = 0; i < n_ports; i++) {
@@ -1572,7 +1610,8 @@ of_recv_features_reply(c_switch_t *sw, struct cbuf *b)
     sw->n_ports = n_ports;
 
     if (sw->switch_state != SW_REGISTERED) {
-	//Again add the switch table info to the controller handler
+		//Again add the switch table info to the controller handler
+		c_log_debug("(%s) switch is being registered", __FUNCTION__);
         of_switch_add(sw);
         sw->switch_state = SW_REGISTERED;
         sw->last_sample_time = g_get_monotonic_time();
@@ -1773,6 +1812,7 @@ of_do_flow_lookup(c_switch_t *sw, struct flow *fl)
 void
 of_flow_entry_put(c_fl_entry_t *ent)
 {
+	c_log_debug("(%s) \n", __FUNCTION__);
     if (atomic_read(&ent->FL_REF) == 0) {
         if (ent->actions &&
             !(ent->FL_FLAGS & C_FL_ENT_CLONE))  {
@@ -1818,6 +1858,7 @@ of_dfl_fwd(struct c_switch *sw, struct cbuf *b, void *data, size_t pkt_len,
     c_fl_entry_t  *fl_ent;
     struct ofp_packet_in *opi = (void *)(b->data);
 
+	c_log_debug("(%s) sw->dpid:%d\n", __FUNCTION__, sw->datapath_id);
     if(!(fl_ent = of_do_flow_lookup(sw, fl))) {
         //c_log_debug("Flow lookup fail");
         return 0;
@@ -1836,6 +1877,7 @@ of_dfl_fwd(struct c_switch *sw, struct cbuf *b, void *data, size_t pkt_len,
     }
 
     of_send_flow_add(sw, fl_ent, ntohl(opi->buffer_id));
+	c_log_debug("(%s) OF send flow called sw->dpid:%d\n", __FUNCTION__, sw->datapath_id);
 
     parms.data       = 0;
     parms.data_len   = 0;
@@ -1868,14 +1910,18 @@ of_recv_packet_in(c_switch_t *sw, struct cbuf *b)
     struct flow          fl;
     uint16_t             in_port = ntohs(opi->in_port);
 
+	c_log_debug("(%s) sw->dpid:%d\n", __FUNCTION__, sw->datapath_id);
+
     /* Extract flow data from 'opi' into 'flow'. */
     pkt_ofs = offsetof(struct ofp_packet_in, data);
     pkt_len = ntohs(opi->header.length) - pkt_ofs;
 
+	
     if(!sw->fp_ops.fp_fwd || of_flow_extract(opi->data, &fl, in_port, pkt_len) < 0) {
         return;
     }
 
+	c_log_debug("(%s) Packet IN DONE sw->dpid:%d\n", __FUNCTION__, sw->datapath_id);
     sw->fp_ops.fp_fwd(sw, b, opi->data, pkt_len, &fl, in_port);
 
     return;
@@ -2125,6 +2171,8 @@ of_switch_recv_msg(void *sw_arg, struct cbuf *b)
 {
     c_switch_t *sw = sw_arg;
     struct ofp_header *oh;
+
+    c_log_debug("(%s) ", __FUNCTION__);
 
     prefetch(&of_handlers[OFPT_PACKET_IN]);
 
